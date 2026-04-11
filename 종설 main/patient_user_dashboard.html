@@ -267,6 +267,41 @@
       background: #00427f;
     }
 
+    .mp-source-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .mp-webcam-btn {
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 16px;
+      background: #0f766e;
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 0.92rem;
+    }
+
+    .mp-webcam-btn:hover:not(:disabled) {
+      background: #0d5f59;
+    }
+
+    .mp-webcam-btn.active {
+      background: #b91c1c;
+    }
+
+    .mp-webcam-btn.active:hover:not(:disabled) {
+      background: #991b1b;
+    }
+
+    .mp-webcam-btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
     #mpFileInput {
       position: absolute;
       width: 0;
@@ -283,6 +318,7 @@
       background: #111827;
       position: relative;
       max-width: 100%;
+      min-height: 200px;
     }
 
     #mpVideo {
@@ -425,10 +461,11 @@
           <strong>의료기기 진단이 아니며</strong>, 결과는 전신이 잘 보이는 짧은 영상에서 더 의미가 있습니다.
           로컬 서버(<code>http://localhost</code>) 또는 HTTPS에서 WASM 로딩이 안정적입니다.
         </p>
-        <div>
+        <div class="mp-source-row">
           <input id="mpFileInput" type="file" accept="video/*" />
           <label class="mp-upload-label" for="mpFileInput">영상 파일 선택</label>
-          <span id="mpFileName" style="margin-left:8px;font-size:0.88rem;color:#6b7280;"></span>
+          <button id="mpWebcamBtn" class="mp-webcam-btn" type="button">웹캠으로 연결</button>
+          <span id="mpFileName" style="font-size:0.88rem;color:#6b7280;"></span>
         </div>
         <div class="mp-preview-wrap">
           <video id="mpVideo" playsinline muted></video>
@@ -573,7 +610,6 @@
       }
 
       localStorage.setItem("painLevel", selected);
-      localStorage.setItem("patientAlertSeen", "false");
       painMessageEl.textContent = `통증 정도 ${selected}로 저장되었습니다.`;
       painMessageEl.style.color = "#047857";
     });
@@ -585,7 +621,6 @@
         return;
       }
       localStorage.setItem("bodyPartKey", key);
-      localStorage.setItem("patientAlertSeen", "false");
       bodyPartResult.innerHTML = bodyPartReference[key] || "";
     }
 
@@ -599,6 +634,7 @@
       "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
 
     const mpFileInput = document.getElementById("mpFileInput");
+    const mpWebcamBtn = document.getElementById("mpWebcamBtn");
     const mpVideo = document.getElementById("mpVideo");
     const mpCanvas = document.getElementById("mpCanvas");
     const mpAnalyzeBtn = document.getElementById("mpAnalyzeBtn");
@@ -609,6 +645,12 @@
     let objectUrl = null;
     let poseLandmarker = null;
     let analyzing = false;
+    /** @type {"none"|"file"|"webcam"} */
+    let inputMode = "none";
+    /** @type {MediaStream|null} */
+    let mediaStream = null;
+    let liveRafId = null;
+    let webcamLiveActive = false;
 
     const POSE_LINES = [
       [11, 12],
@@ -677,7 +719,32 @@
         headForward = Math.abs(nose.x - midShoulderX);
       }
 
-      return { shoulderDiffY, lateralRatio, headForward };
+      const out = { shoulderDiffY, lateralRatio, headForward };
+
+      const lk = lm[25];
+      const rk = lm[26];
+      const la = lm[27];
+      const ra = lm[28];
+      const visOk = function (p) {
+        return p && (p.visibility == null || p.visibility > 0.3);
+      };
+      if (visOk(lk) && visOk(rk) && visOk(la) && visOk(ra)) {
+        out.hipDiffY = Math.abs(lh.y - rh.y);
+        out.kneeDiffY = Math.abs(lk.y - rk.y);
+        out.ankleDiffY = Math.abs(la.y - ra.y);
+        const midKx = (lk.x + rk.x) / 2;
+        const midKy = (lk.y + rk.y) / 2;
+        const midAx = (la.x + ra.x) / 2;
+        const midAy = (la.y + ra.y) / 2;
+        const latShiftLower = Math.abs(midHx - midAx);
+        const legVertical = Math.max(0.05, Math.abs(midHy - midAy));
+        out.lowerLateralRatio = latShiftLower / legVertical;
+        const hipSpanX = Math.abs(rh.x - lh.x);
+        const kneeSpanX = Math.abs(rk.x - lk.x);
+        out.kneeHipWidthRatio = kneeSpanX / Math.max(0.04, hipSpanX);
+      }
+
+      return out;
     }
 
     function poseOptions(delegate) {
@@ -709,31 +776,250 @@
       return poseLandmarker;
     }
 
+    function stopLiveWebcamAnalysis() {
+      if (liveRafId != null) {
+        cancelAnimationFrame(liveRafId);
+        liveRafId = null;
+      }
+      webcamLiveActive = false;
+      if (inputMode === "webcam" && mediaStream) {
+        mpVideo.style.display = "block";
+        mpCanvas.style.display = "none";
+      }
+      syncAnalyzeButtonLabel();
+    }
+
+    function disconnectWebcam() {
+      stopLiveWebcamAnalysis();
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(function (t) {
+          t.stop();
+        });
+        mediaStream = null;
+      }
+      mpVideo.srcObject = null;
+      mpWebcamBtn.textContent = "웹캠으로 연결";
+      mpWebcamBtn.classList.remove("active");
+      if (inputMode === "webcam") {
+        inputMode = "none";
+        mpAnalyzeBtn.disabled = true;
+        mpStatus.textContent = "영상 파일을 선택하거나 웹캠을 연결해 주세요.";
+        mpFileName.textContent = "";
+      }
+      syncAnalyzeButtonLabel();
+    }
+
+    function syncAnalyzeButtonLabel() {
+      if (inputMode === "webcam") {
+        mpAnalyzeBtn.textContent = webcamLiveActive ? "실시간 분석 중지" : "실시간 자세 분석 시작";
+      } else {
+        mpAnalyzeBtn.textContent = "자세 분석 시작";
+      }
+    }
+
     mpFileInput.addEventListener("change", function () {
       const file = mpFileInput.files && mpFileInput.files[0];
       mpResult.textContent = "";
+      if (mediaStream) disconnectWebcam();
       if (objectUrl) {
         URL.revokeObjectURL(objectUrl);
         objectUrl = null;
       }
+      mpVideo.removeAttribute("src");
       if (!file) {
         mpFileName.textContent = "";
+        inputMode = "none";
         mpAnalyzeBtn.disabled = true;
         mpStatus.textContent = "영상을 선택한 뒤 분석을 눌러 주세요.";
+        syncAnalyzeButtonLabel();
         return;
       }
       objectUrl = URL.createObjectURL(file);
       mpVideo.src = objectUrl;
+      inputMode = "file";
       mpFileName.textContent = file.name;
       mpAnalyzeBtn.disabled = false;
       mpStatus.textContent = "영상이 준비되었습니다. 「자세 분석 시작」을 눌러 주세요.";
+      syncAnalyzeButtonLabel();
     });
 
+    mpWebcamBtn.addEventListener("click", async function () {
+      if (analyzing) return;
+      if (mediaStream) {
+        disconnectWebcam();
+        return;
+      }
+      mpResult.textContent = "";
+
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false,
+        });
+      } catch (err) {
+        mpStatus.textContent = "웹캠을 사용할 수 없습니다. 브라우저 권한·HTTPS(localhost)를 확인해 주세요.";
+        return;
+      }
+
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+        objectUrl = null;
+      }
+      mpVideo.removeAttribute("src");
+      mpFileInput.value = "";
+      mpFileName.textContent = "웹캠 연결됨";
+
+      mpVideo.srcObject = mediaStream;
+      inputMode = "webcam";
+      mpWebcamBtn.textContent = "웹캠 끊기";
+      mpWebcamBtn.classList.add("active");
+      mpCanvas.style.display = "none";
+      mpVideo.style.display = "block";
+
+      await new Promise(function (resolve) {
+        if (mpVideo.readyState >= 1) return resolve();
+        mpVideo.onloadedmetadata = function () {
+          resolve();
+        };
+      });
+      try {
+        await mpVideo.play();
+      } catch (e) {
+        disconnectWebcam();
+        mpStatus.textContent = "영상 재생을 시작하지 못했습니다.";
+        return;
+      }
+
+      mpAnalyzeBtn.disabled = false;
+      mpStatus.textContent = "「실시간 자세 분석 시작」을 누르면 웹캠 화면에 골격이 표시됩니다.";
+      syncAnalyzeButtonLabel();
+    });
+
+    async function startLiveWebcamAnalysis() {
+      let pl;
+      try {
+        pl = await ensurePose();
+      } catch (err) {
+        mpStatus.textContent = "모델을 불러오지 못했습니다. HTTPS 또는 localhost에서 다시 시도해 주세요.";
+        mpResult.textContent = String(err && err.message ? err.message : err);
+        return;
+      }
+
+      const vw = mpVideo.videoWidth;
+      const vh = mpVideo.videoHeight;
+      if (!vw || !vh) {
+        mpStatus.textContent = "웹캠 해상도를 읽을 수 없습니다.";
+        return;
+      }
+
+      mpCanvas.width = vw;
+      mpCanvas.height = vh;
+      mpCanvas.style.display = "block";
+      mpVideo.style.display = "none";
+
+      const shoulderDiffs = [];
+      const lateralRatios = [];
+      const headForwards = [];
+      const hipDiffs = [];
+      const lowerLateralRatios = [];
+      const kneeDiffs = [];
+      const ankleDiffs = [];
+      const kneeHipRatios = [];
+      const win = 40;
+      let frames = 0;
+      let lastUi = 0;
+
+      webcamLiveActive = true;
+      syncAnalyzeButtonLabel();
+      mpStatus.textContent = "실시간 분석 중… (중지하려면 버튼을 누르세요)";
+      mpResult.textContent = "【실시간 요약 (참고용)】\n골격이 검출되면 이곳에 최근 구간 평균이 갱신됩니다.";
+
+      function pushMetric(arr, v) {
+        arr.push(v);
+        if (arr.length > win) arr.shift();
+      }
+
+      function avgArr(arr) {
+        if (!arr.length) return 0;
+        return arr.reduce(function (a, b) {
+          return a + b;
+        }, 0) / arr.length;
+      }
+
+      function tick() {
+        if (!webcamLiveActive || !mediaStream) return;
+        liveRafId = requestAnimationFrame(tick);
+        const ts = performance.now();
+        const result = pl.detectForVideo(mpVideo, ts);
+        const lmPack = result.landmarks || result.poseLandmarks;
+        if (lmPack && lmPack[0]) {
+          drawFrame(lmPack[0]);
+          const s = summarizeFrame(lmPack[0]);
+          if (s) {
+            pushMetric(shoulderDiffs, s.shoulderDiffY);
+            pushMetric(lateralRatios, s.lateralRatio);
+            pushMetric(headForwards, s.headForward);
+            if (s.hipDiffY !== undefined) pushMetric(hipDiffs, s.hipDiffY);
+            if (s.lowerLateralRatio !== undefined) pushMetric(lowerLateralRatios, s.lowerLateralRatio);
+            if (s.kneeDiffY !== undefined) pushMetric(kneeDiffs, s.kneeDiffY);
+            if (s.ankleDiffY !== undefined) pushMetric(ankleDiffs, s.ankleDiffY);
+            if (s.kneeHipWidthRatio !== undefined) pushMetric(kneeHipRatios, s.kneeHipWidthRatio);
+          }
+        } else {
+          drawFrame(null);
+        }
+        frames++;
+        const hasUpper = shoulderDiffs.length > 0;
+        const hasLower = hipDiffs.length > 0;
+        if (frames - lastUi >= 12 && (hasUpper || hasLower)) {
+          lastUi = frames;
+          const lines = [];
+          const n = Math.max(shoulderDiffs.length, hipDiffs.length, 1);
+          lines.push("【실시간 요약 (참고용, 최근 약 " + n + "프레임 평균)】");
+          if (hasUpper) {
+            lines.push("〈상체〉");
+            lines.push("· 어깨 높이 차이(정규화): " + avgArr(shoulderDiffs).toFixed(3));
+            lines.push("· 상체 좌우 기울기 지표: " + avgArr(lateralRatios).toFixed(3));
+            lines.push("· 머리 전방 지표: " + avgArr(headForwards).toFixed(3));
+          }
+          if (hasLower) {
+            lines.push("〈하체〉");
+            lines.push("· 골반(엉덩이) 좌우 높이 차: " + avgArr(hipDiffs).toFixed(3));
+            lines.push("· 하체 좌우 기울기 지표: " + avgArr(lowerLateralRatios).toFixed(3) + " — 골반·발목 중심의 좌우 어긋남을 다리 길이로 나눈 값");
+            lines.push("· 무릎 높이 좌우 차: " + avgArr(kneeDiffs).toFixed(3));
+            lines.push("· 발목 높이 좌우 차: " + avgArr(ankleDiffs).toFixed(3));
+            lines.push("· 무릎 간격/골반 간격 비: " + avgArr(kneeHipRatios).toFixed(3) + " — 정면에서 무릎·엉덩이 너비 비(참고)");
+          }
+          if (!hasLower && hasUpper) {
+            lines.push("〈하체〉 다리가 잘 보이면 골반·무릎·발목 지표가 표시됩니다.");
+          }
+          lines.push("");
+          lines.push("※ 수치는 참고용이며 의료 진단이 아닙니다.");
+          mpResult.textContent = lines.join("\n");
+        }
+      }
+
+      liveRafId = requestAnimationFrame(tick);
+    }
+
     mpAnalyzeBtn.addEventListener("click", async function () {
-      if (analyzing || !mpVideo.src) return;
+      if (inputMode === "webcam") {
+        if (webcamLiveActive) {
+          stopLiveWebcamAnalysis();
+          mpStatus.textContent = "실시간 분석을 중지했습니다. 다시 시작하려면 버튼을 누르세요.";
+          syncAnalyzeButtonLabel();
+          return;
+        }
+        await startLiveWebcamAnalysis();
+        return;
+      }
+
+      if (analyzing || inputMode !== "file" || !mpVideo.src) return;
       analyzing = true;
       mpAnalyzeBtn.disabled = true;
       mpResult.textContent = "";
+
+      mpWebcamBtn.disabled = true;
 
       let pl;
       try {
@@ -743,6 +1029,7 @@
         mpResult.textContent = String(err && err.message ? err.message : err);
         analyzing = false;
         mpAnalyzeBtn.disabled = false;
+        mpWebcamBtn.disabled = false;
         return;
       }
       await new Promise(function (resolve) {
@@ -758,6 +1045,7 @@
         mpStatus.textContent = "영상 크기를 읽을 수 없습니다.";
         analyzing = false;
         mpAnalyzeBtn.disabled = false;
+        mpWebcamBtn.disabled = false;
         return;
       }
 
@@ -776,6 +1064,11 @@
       const shoulderDiffs = [];
       const lateralRatios = [];
       const headForwards = [];
+      const hipDiffs = [];
+      const lowerLateralRatios = [];
+      const kneeDiffs = [];
+      const ankleDiffs = [];
+      const kneeHipRatios = [];
       let detected = 0;
 
       for (let i = 0; i < samples; i++) {
@@ -804,6 +1097,11 @@
             shoulderDiffs.push(s.shoulderDiffY);
             lateralRatios.push(s.lateralRatio);
             headForwards.push(s.headForward);
+            if (s.hipDiffY !== undefined) hipDiffs.push(s.hipDiffY);
+            if (s.lowerLateralRatio !== undefined) lowerLateralRatios.push(s.lowerLateralRatio);
+            if (s.kneeDiffY !== undefined) kneeDiffs.push(s.kneeDiffY);
+            if (s.ankleDiffY !== undefined) ankleDiffs.push(s.ankleDiffY);
+            if (s.kneeHipWidthRatio !== undefined) kneeHipRatios.push(s.kneeHipWidthRatio);
           }
           drawFrame(lmPack[0]);
         } else {
@@ -825,20 +1123,35 @@
       const ad = avg(shoulderDiffs);
       const am = avg(lateralRatios);
       const ah = avg(headForwards);
+      const hadLower = hipDiffs.length > 0;
 
       let lines = [];
       lines.push("【분석 요약 (참고용)】");
       lines.push(`· 분석 구간: 약 ${samples}장면 샘플 (영상 길이 ${duration.toFixed(1)}초 기준)`);
       lines.push(`· 자세가 검출된 장면: ${detected} / ${samples}`);
       lines.push("");
+      lines.push("〈상체〉");
       lines.push("· 어깨 높이 차이(정규화, 평균): " + ad.toFixed(3) + " — 값이 클수록 좌우 어깨 높이 차가 클 수 있습니다.");
       lines.push("· 상체 좌우 기울기 지표(평균): " + am.toFixed(3) + " — 어깨 중심과 골반 중심의 좌우 어긋남 상대값입니다.");
       lines.push("· 머리 전방 지표(평균): " + ah.toFixed(3) + " — 코와 어깨 중앙의 좌우 차이(참고)입니다.");
+      lines.push("");
+      if (hadLower) {
+        lines.push("〈하체〉");
+        lines.push("· 골반(엉덩이) 좌우 높이 차(평균): " + avg(hipDiffs).toFixed(3) + " — 좌우 엉덩이 높이 차(정규화 좌표).");
+        lines.push("· 하체 좌우 기울기 지표(평균): " + avg(lowerLateralRatios).toFixed(3) + " — 골반 중심과 발목 중심의 좌우 어긋남을 다리 길이로 나눈 값.");
+        lines.push("· 무릎 높이 좌우 차(평균): " + avg(kneeDiffs).toFixed(3));
+        lines.push("· 발목 높이 좌우 차(평균): " + avg(ankleDiffs).toFixed(3));
+        lines.push("· 무릎 간격/골반 간격 비(평균): " + avg(kneeHipRatios).toFixed(3) + " — 정면에서 무릎·엉덩이 너비 비(참고).");
+      } else {
+        lines.push("〈하체〉 다리·발이 프레임에 잘 들어오면 골반·무릎·발목 지표가 채워집니다.");
+      }
       lines.push("");
       if (detected < samples * 0.3) {
         lines.push("※ 전신이 잘 보이도록 촬영했는지, 밝기·각도를 확인해 보세요.");
       } else if (max(shoulderDiffs) > 0.08) {
         lines.push("※ 일부 구간에서 어깨 높이 차이가 커 보입니다. 스트레칭·자세 교정은 전문가와 상담하세요.");
+      } else if (hadLower && max(hipDiffs) > 0.08) {
+        lines.push("※ 일부 구간에서 골반 좌우 높이 차가 커 보입니다. 참고용이며 이상 시 전문가 상담을 권합니다.");
       } else {
         lines.push("※ 수치는 참고용이며, 불편이 있으면 의료·운동 전문가와 상담하세요.");
       }
@@ -847,7 +1160,10 @@
       mpStatus.textContent = "분석이 완료되었습니다. (마지막 프레임에 뼈대가 그려졌습니다.)";
       analyzing = false;
       mpAnalyzeBtn.disabled = false;
+      mpWebcamBtn.disabled = false;
     });
+
+    syncAnalyzeButtonLabel();
   </script>
 </body>
 </html>

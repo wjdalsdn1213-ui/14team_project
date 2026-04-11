@@ -176,16 +176,6 @@
       min-height: 1.1em;
     }
 
-    .alert-dot {
-      display: inline-block;
-      width: 10px;
-      height: 10px;
-      border-radius: 999px;
-      background: #dc2626;
-      margin-left: 6px;
-      vertical-align: middle;
-    }
-
     .patient-alert-box {
       margin-top: 10px;
       font-size: 0.9rem;
@@ -199,7 +189,7 @@
 </head>
 <body>
   <main class="container">
-    <h1>치료사 화면 <span id="alertDot" class="alert-dot" style="display:none;"></span></h1>
+    <h1>치료사 화면</h1>
     <p>환자 목록을 확인할 수 있습니다.</p>
 
     <section class="panel" aria-label="환자 목록">
@@ -254,7 +244,6 @@
     const exercisePanel = document.getElementById("exercisePanel");
     const saveExerciseBtn = document.getElementById("saveExerciseBtn");
     const exerciseMessage = document.getElementById("exerciseMessage");
-    const alertDot = document.getElementById("alertDot");
     const patientAlertBox = document.getElementById("patientAlertBox");
 
     const bodyPartLabelMap = {
@@ -270,15 +259,7 @@
     (function initPatientAlert() {
       const painLevel = localStorage.getItem("painLevel");
       const bodyPartKey = localStorage.getItem("bodyPartKey");
-      const wasSeen = localStorage.getItem("patientAlertSeen") === "true";
       const hasData = !!(painLevel || bodyPartKey);
-      const shouldShowDot = hasData && !wasSeen;
-
-      if (shouldShowDot) {
-        alertDot.style.display = "inline-block";
-      } else {
-        alertDot.style.display = "none";
-      }
 
       let lines = [];
       if (!hasData) {
@@ -293,10 +274,6 @@
         }
       }
       patientAlertBox.innerHTML = lines.join("<br />");
-
-      if (hasData) {
-        localStorage.setItem("patientAlertSeen", "true");
-      }
     })();
 
     selectPatientBtn.addEventListener("click", function () {
