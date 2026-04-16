@@ -8,6 +8,11 @@
 
 from __future__ import annotations
 
+import socket
+from contextlib import asynccontextmanager
+#기존 from zeroconf import ServiceInfo, Zeroconf
+from zeroconf import ServiceInfo
+from zeroconf.asyncio import AsyncZeroconf
 import os
 import re
 from pathlib import Path
@@ -186,7 +191,63 @@ async def _root_index(request: Request) -> HTMLResponse:
 </html>"""
     return HTMLResponse(html)
 
+def get_local_ip() -> str:
+    """내 컴퓨터의 공유기 내부 IP를 자동으로 찾아냅니다."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # 구글 DNS로 가짜 연결을 맺어 내 IP를 알아내는 꼼수입니다.
+        s.connect(('8.8.8.8', 1))
+        ip = s.getsockname()[0]
+    except Exception:
+        ip = '127.0.0.1'
+    finally:
+        s.close()
+    return ip
 
+@asynccontextmanager
+async def app_lifespan(app: Starlette):
+    """서버가 켜지고 꺼질 때 mDNS 방송을 관리합니다 (비동기 방식)."""
+    # 일반 Zeroconf 대신 비동기용 AsyncZeroconf 사용
+    aio_zc = AsyncZeroconf()
+    ip = get_local_ip()
+    
+    info = ServiceInfo(
+        "_http._tcp.local.",
+        "ChatApp._http._tcp.local.",
+        addresses=[socket.inet_aton(ip)],
+        port=8000,
+        server="chatserver.local.",
+    )
+    
+    # 비동기(await)로 서비스 등록 (서버 멈춤 방지)
+    await aio_zc.async_register_service(info)
+    print("=" * 50)
+    print(f"🚀 mDNS 방송 시작! 같은 와이파이 기기에서 아래 주소로 접속하세요:")
+    print(f"👉 http://chatserver.local:8000")
+    print("=" * 50)
+    
+    yield  # 서버 실행 구간
+    
+    # 서버 꺼질 때 비동기(await)로 방송 종료
+    await aio_zc.async_unregister_service(info)
+    await aio_zc.async_close()
+    
+#_starlette = Starlette(
+#    routes=[
+#        Route("/", _root_index),
+#        Route("/preview/patient", _html("preview_patient.html")),
+#        Route("/preview/patient/", _html("preview_patient.html")),
+#        Route("/preview/therapist", _html("preview_therapist.html")),
+#        Route("/preview/therapist/", _html("preview_therapist.html")),
+ #   ]
+#)
+
+# 기존 코드:
+# _starlette = Starlette(
+#     routes=[ ... ]
+# )
+
+# 수정할 코드:
 _starlette = Starlette(
     routes=[
         Route("/", _root_index),
@@ -194,7 +255,8 @@ _starlette = Starlette(
         Route("/preview/patient/", _html("preview_patient.html")),
         Route("/preview/therapist", _html("preview_therapist.html")),
         Route("/preview/therapist/", _html("preview_therapist.html")),
-    ]
+    ],
+    lifespan=app_lifespan  # ★ 여기에 방금 만든 lifespan 함수를 연결합니다.
 )
 
 _sio_asgi = socketio.ASGIApp(sio)
