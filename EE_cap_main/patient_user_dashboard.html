@@ -221,27 +221,31 @@
     }
 
     .chat-action {
-      margin-bottom: 16px;
-      text-align: center;
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      margin: 0;
+      z-index: 1000;
     }
 
     .chat-open-btn {
-      width: 100%;
-      max-width: 360px;
+      width: 52px;
+      height: 52px;
       border: 0;
-      border-radius: 999px;
-      padding: 12px 18px;
-      background: #0d9488;
+      border-radius: 50%;
+      padding: 0;
+      background: #2563eb;
       color: #fff;
       font-weight: 800;
-      font-size: 0.95rem;
+      font-size: 1.8rem;
+      line-height: 1;
       cursor: pointer;
       box-shadow: 0 6px 16px rgba(13, 148, 136, 0.25);
       transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
     }
 
     .chat-open-btn:hover {
-      background: #0f766e;
+      background: #1d4ed8;
       box-shadow: 0 10px 22px rgba(15, 118, 110, 0.28);
     }
 
@@ -428,10 +432,6 @@
     <h1>환자용 대시보드</h1>
     <p id="subText">김환자님의 운동 안내</p>
 
-    <div class="chat-action">
-      <button type="button" id="patientChatBtn" class="chat-open-btn">1:1 채팅</button>
-    </div>
-
     <section class="patient-top" aria-label="환자 정보">
       <img
         class="avatar"
@@ -531,6 +531,9 @@
         <div id="mpResult"></div>
       </div>
     </section>
+    <div class="chat-action">
+      <button type="button" id="patientChatBtn" class="chat-open-btn" aria-label="1:1 채팅 열기">+</button>
+    </div>
   </main>
 
   <script>

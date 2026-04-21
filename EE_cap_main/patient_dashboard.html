@@ -210,27 +210,31 @@
     }
 
     .chat-action {
-      margin-bottom: 16px;
-      text-align: center;
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      margin: 0;
+      z-index: 1000;
     }
 
     .chat-open-btn {
-      width: 100%;
-      max-width: 360px;
+      width: 52px;
+      height: 52px;
       border: 0;
-      border-radius: 999px;
-      padding: 12px 18px;
-      background: var(--secondary);
+      border-radius: 50%;
+      padding: 0;
+      background: var(--primary);
       color: #fff;
       font-weight: 800;
-      font-size: 0.95rem;
+      font-size: 1.8rem;
+      line-height: 1;
       cursor: pointer;
       box-shadow: 0 6px 16px rgba(15, 118, 110, 0.25);
       transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
     }
 
     .chat-open-btn:hover {
-      background: var(--secondary-hover);
+      background: var(--primary-hover);
       box-shadow: 0 10px 22px rgba(13, 95, 89, 0.28);
     }
 
@@ -243,10 +247,6 @@
   <main class="container">
     <h1>대시보드</h1>
     <p>김환자의 선택 운동과 횟수를 확인할 수 있습니다.</p>
-
-    <div class="chat-action">
-      <button type="button" id="patientChatBtn" class="chat-open-btn">1:1 채팅</button>
-    </div>
 
     <section class="patient-top" aria-label="환자 정보">
       <img
@@ -281,6 +281,9 @@
         <button id="sendBtn" class="send-btn" type="button">보내기</button>
       </div>
     </section>
+    <div class="chat-action">
+      <button type="button" id="patientChatBtn" class="chat-open-btn" aria-label="1:1 채팅 열기">+</button>
+    </div>
   </main>
 
   <script>

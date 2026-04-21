@@ -184,11 +184,20 @@
       background: #f9fafb;
       border: 1px solid #e5e7eb;
       text-align: left;
+      display: none;
+    }
+
+    .patient-alert-box.active {
+      display: block;
     }
 
     .chat-action {
-      margin-bottom: 16px;
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      margin: 0;
       display: none;
+      z-index: 1000;
     }
 
     .chat-action.active {
@@ -196,8 +205,15 @@
     }
 
     .chat-action .btn {
-      max-width: 360px;
-      margin: 0 auto;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      padding: 0;
+      font-size: 1.8rem;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
   </style>
 </head>
@@ -207,7 +223,7 @@
     <p>환자 목록을 확인할 수 있습니다.</p>
 
     <div class="chat-action">
-      <button id="therapistChatBtn" class="btn btn-primary" type="button">1:1 채팅</button>
+      <button id="therapistChatBtn" class="btn btn-primary" type="button" aria-label="1:1 채팅 열기">+</button>
     </div>
 
     <section class="panel" aria-label="환자 목록">
@@ -309,6 +325,7 @@
     selectPatientBtn.addEventListener("click", function () {
       exercisePanel.classList.add("active");
       chatAction.classList.add("active");
+      patientAlertBox.classList.add("active");
       exerciseMessage.textContent = "";
     });
 
