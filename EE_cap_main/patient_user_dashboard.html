@@ -29,9 +29,9 @@
     }
 
     .container {
-      width: min(720px, 100%);
+      width: min(1120px, 100%);
       background: var(--card-bg);
-      border-radius: 18px;
+      border-radius: 0;
       box-shadow: 0 12px 30px rgba(17, 24, 39, 0.12);
       padding: 28px;
       text-align: center;
@@ -54,7 +54,7 @@
       gap: 16px;
       align-items: center;
       padding: 16px;
-      border-radius: 14px;
+      border-radius: 0;
       border: 1px solid #e5e7eb;
       background: #f9fafb;
       text-align: left;
@@ -64,7 +64,7 @@
     .avatar {
       width: 96px;
       height: 96px;
-      border-radius: 18px;
+      border-radius: 0;
       border: 1px dashed #cbd5e1;
       background: #ffffff;
       object-fit: contain;
@@ -94,10 +94,13 @@
 
     .section {
       border: 1px solid #e5e7eb;
-      border-radius: 14px;
+      border-radius: 0;
       background: #f9fafb;
       padding: 16px;
       text-align: left;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 16px;
     }
 
     .section h2 {
@@ -106,14 +109,20 @@
       color: #111827;
     }
 
+    .section > h2 {
+      grid-column: 1 / -1;
+      margin-bottom: 2px;
+    }
+
     .exercise-list {
       display: grid;
       gap: 10px;
+      align-content: start;
     }
 
     .exercise-item {
       border: 1px solid #e5e7eb;
-      border-radius: 12px;
+      border-radius: 0;
       background: #ffffff;
       padding: 12px;
       display: flex;
@@ -132,7 +141,7 @@
       color: var(--secondary);
       font-weight: 900;
       padding: 8px 12px;
-      border-radius: 999px;
+      border-radius: 0;
       white-space: nowrap;
     }
 
@@ -144,9 +153,11 @@
     }
 
     .video-section {
-      margin-top: 18px;
-      border-top: 1px solid #e5e7eb;
-      padding-top: 14px;
+      margin-top: 0;
+      border: 1px solid #e5e7eb;
+      border-radius: 0;
+      background: #ffffff;
+      padding: 14px;
     }
 
     .video-list {
@@ -154,6 +165,44 @@
       display: grid;
       gap: 6px;
       font-size: 0.9rem;
+    }
+
+    .video-card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 10px;
+    }
+
+    .video-card {
+      display: block;
+      text-decoration: none;
+      color: inherit;
+      border: 1px solid #e5e7eb;
+      border-radius: 0;
+      overflow: hidden;
+      background: #ffffff;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .video-card:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 18px rgba(17, 24, 39, 0.12);
+    }
+
+    .video-thumb {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+      display: block;
+      background: #e5e7eb;
+    }
+
+    .video-title {
+      padding: 8px 10px 10px;
+      font-size: 0.86rem;
+      font-weight: 700;
+      line-height: 1.4;
+      color: #111827;
     }
 
     .video-link {
@@ -167,9 +216,11 @@
     }
 
     .pain-section {
-      margin-top: 18px;
-      border-top: 1px solid #e5e7eb;
-      padding-top: 14px;
+      margin-top: 0;
+      border: 1px solid #e5e7eb;
+      border-radius: 0;
+      background: #ffffff;
+      padding: 14px;
     }
 
     .pain-controls {
@@ -183,7 +234,7 @@
     .pain-select {
       min-width: 120px;
       border: 1px solid #d1d5db;
-      border-radius: 10px;
+      border-radius: 0;
       padding: 8px 10px;
       font-size: 0.95rem;
       background: #fff;
@@ -191,7 +242,7 @@
 
     .pain-save-btn {
       border: 0;
-      border-radius: 999px;
+      border-radius: 0;
       padding: 9px 14px;
       background: #0056a8;
       color: #fff;
@@ -202,7 +253,7 @@
     .exercise-reset-btn {
       margin-top: 12px;
       border: 1px solid #d1d5db;
-      border-radius: 10px;
+      border-radius: 0;
       padding: 8px 14px;
       background: #ffffff;
       color: #6b7280;
@@ -262,9 +313,11 @@
     }
 
     .body-part-section {
-      margin-top: 18px;
-      border-top: 1px solid #e5e7eb;
-      padding-top: 14px;
+      margin-top: 0;
+      border: 1px solid #e5e7eb;
+      border-radius: 0;
+      background: #ffffff;
+      padding: 14px;
     }
 
     .body-part-disclaimer {
@@ -275,7 +328,7 @@
       padding: 10px 12px;
       background: #fefce8;
       border: 1px solid #fde68a;
-      border-radius: 10px;
+      border-radius: 0;
     }
 
     .body-part-result {
@@ -287,9 +340,12 @@
     }
 
     .mp-section {
-      margin-top: 18px;
-      border-top: 1px solid #e5e7eb;
-      padding-top: 14px;
+      margin-top: 0;
+      border: 1px solid #e5e7eb;
+      border-radius: 0;
+      background: #ffffff;
+      padding: 14px;
+      grid-column: 1 / -1;
     }
 
     .mp-disclaimer {
@@ -299,13 +355,13 @@
       margin-bottom: 10px;
       padding: 10px 12px;
       background: #f3f4f6;
-      border-radius: 10px;
+      border-radius: 0;
     }
 
     .mp-upload-label {
       display: inline-block;
       padding: 10px 16px;
-      border-radius: 999px;
+      border-radius: 0;
       background: #0056a8;
       color: #fff;
       font-weight: 700;
@@ -326,7 +382,7 @@
 
     .mp-webcam-btn {
       border: 0;
-      border-radius: 999px;
+      border-radius: 0;
       padding: 10px 16px;
       background: #0f766e;
       color: #fff;
@@ -363,7 +419,7 @@
     .mp-preview-wrap {
       margin-top: 12px;
       border: 1px solid #e5e7eb;
-      border-radius: 12px;
+      border-radius: 0;
       overflow: hidden;
       background: #111827;
       position: relative;
@@ -395,7 +451,7 @@
 
     .mp-analyze-btn {
       border: 0;
-      border-radius: 999px;
+      border-radius: 0;
       padding: 9px 16px;
       background: #0f766e;
       color: #fff;
@@ -425,6 +481,23 @@
       text-align: left;
       white-space: pre-wrap;
     }
+
+    .exercise-board {
+      border: 1px solid #e5e7eb;
+      border-radius: 0;
+      background: #ffffff;
+      padding: 14px;
+    }
+
+    @media (max-width: 920px) {
+      .section {
+        grid-template-columns: 1fr;
+      }
+
+      .section > * {
+        grid-column: 1 / -1 !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -436,7 +509,7 @@
       <img
         class="avatar"
         alt="공백 프로필 이미지"
-        src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><rect width='200' height='200' fill='white'/></svg>"
+        src="./assets/kim-profile.png"
       />
       <div class="patient-info">
         <div class="info-row">
@@ -456,11 +529,13 @@
 
     <section class="section" aria-label="전송된 운동">
       <h2>선택된 운동</h2>
-      <div id="exerciseList" class="exercise-list"></div>
-      <div id="hint" class="hint"></div>
-      <button id="exerciseResetBtn" class="exercise-reset-btn" type="button">
-        저장된 운동·전송 정보 초기화
-      </button>
+      <div class="exercise-board">
+        <div id="exerciseList" class="exercise-list"></div>
+        <div id="hint" class="hint"></div>
+        <button id="exerciseResetBtn" class="exercise-reset-btn" type="button">
+          저장된 운동·전송 정보 초기화
+        </button>
+      </div>
       <div id="videoSection" class="video-section">
         <h2>관련 유튜브 영상</h2>
         <div id="videoList" class="video-list"></div>
@@ -585,6 +660,25 @@
         "<strong>수근관증후군</strong> 등이 이야기될 수 있습니다.",
     };
 
+    const videoRecommendationMap = {
+      "전신 스트레칭": [
+        { id: "L_xrDAtykMI", title: "전신 스트레칭 루틴 (초급)" },
+        { id: "sTANio_2E0Q", title: "아침 전신 스트레칭 10분" },
+      ],
+      "가벼운 근력 운동": [
+        { id: "UItWltVZZmE", title: "초보 전신 근력 홈트" },
+        { id: "iod7r4B6FYY", title: "가벼운 맨몸 근력 운동" },
+      ],
+      "호흡/이완 운동": [
+        { id: "SEfs5TJZ6Nk", title: "호흡 이완 가이드" },
+        { id: "aXItOY0sLRY", title: "복식호흡 명상" },
+      ],
+      "균형 잡기 훈련": [
+        { id: "2Xk5XWQxW8U", title: "기초 밸런스 운동" },
+        { id: "v7AYKMP6rOE", title: "하체 균형 잡기 홈트" },
+      ],
+    };
+
     const patientName = localStorage.getItem("patientName") || "김환자";
     document.getElementById("dashName").textContent = patientName;
     const subText = document.getElementById("subText");
@@ -608,10 +702,26 @@
       return 1;
     }
 
-    function makeYoutubeSearchUrl(exerciseName, extra) {
-      const query = extra ? `${exerciseName} ${extra}` : exerciseName;
-      // 운동 이름이 그대로 들어간 검색 결과 페이지로 연결
-      return `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+    function createVideoCard(videoId, title) {
+      const card = document.createElement("a");
+      card.href = `https://www.youtube.com/watch?v=${videoId}`;
+      card.target = "_blank";
+      card.rel = "noopener noreferrer";
+      card.className = "video-card";
+
+      const thumb = document.createElement("img");
+      thumb.className = "video-thumb";
+      thumb.alt = title + " 썸네일";
+      thumb.loading = "lazy";
+      thumb.src = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+
+      const caption = document.createElement("div");
+      caption.className = "video-title";
+      caption.textContent = title;
+
+      card.appendChild(thumb);
+      card.appendChild(caption);
+      return card;
     }
 
     function render() {
@@ -643,30 +753,15 @@
         `;
         exerciseListEl.appendChild(item);
 
-        // 운동 이름과 직접적으로 관련된 유튜브 검색 링크 2개 생성
-        const generalUrl = makeYoutubeSearchUrl(name + " 운동", "");
-        const beginnerUrl = makeYoutubeSearchUrl(name + " 운동", "초보자");
+        const recommended = videoRecommendationMap[name] || [];
+        if (!recommended.length) return;
 
-        const generalLink = document.createElement("a");
-        generalLink.href = generalUrl;
-        generalLink.target = "_blank";
-        generalLink.rel = "noopener noreferrer";
-        generalLink.className = "video-link";
-        generalLink.textContent = `${name} 관련 유튜브 영상 보기`;
-
-        const beginnerLink = document.createElement("a");
-        beginnerLink.href = beginnerUrl;
-        beginnerLink.target = "_blank";
-        beginnerLink.rel = "noopener noreferrer";
-        beginnerLink.className = "video-link";
-        beginnerLink.textContent = `${name} (초보자용) 유튜브 영상 보기`;
-
-        const wrapper = document.createElement("div");
-        wrapper.appendChild(generalLink);
-        wrapper.appendChild(document.createTextNode(" · "));
-        wrapper.appendChild(beginnerLink);
-
-        videoListEl.appendChild(wrapper);
+        const block = document.createElement("div");
+        block.className = "video-card-grid";
+        recommended.forEach((video) => {
+          block.appendChild(createVideoCard(video.id, `${name} - ${video.title}`));
+        });
+        videoListEl.appendChild(block);
       });
     }
 

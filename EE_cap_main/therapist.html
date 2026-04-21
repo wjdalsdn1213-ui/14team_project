@@ -31,9 +31,9 @@
     }
 
     .container {
-      width: min(640px, 100%);
+      width: min(1120px, 100%);
       background: var(--card-bg);
-      border-radius: 18px;
+      border-radius: 0;
       box-shadow: 0 12px 30px rgba(17, 24, 39, 0.12);
       padding: 28px;
       text-align: center;
@@ -50,10 +50,17 @@
       line-height: 1.6;
     }
 
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+
     .panel {
-      margin-top: 18px;
+      margin-top: 0;
       border: 1px solid #e5e7eb;
-      border-radius: 14px;
+      border-radius: 0;
       background: #f9fafb;
       padding: 16px;
       text-align: left;
@@ -75,7 +82,7 @@
       align-items: center;
       gap: 12px;
       padding: 12px;
-      border-radius: 12px;
+      border-radius: 0;
       border: 1px solid #e5e7eb;
       background: #ffffff;
       justify-content: space-between;
@@ -84,7 +91,7 @@
     .avatar {
       width: 44px;
       height: 44px;
-      border-radius: 12px;
+      border-radius: 0;
       border: 1px dashed #cbd5e1;
       background: #fff;
       object-fit: contain;
@@ -104,7 +111,7 @@
     .btn {
       width: 100%;
       border: 0;
-      border-radius: 999px;
+      border-radius: 0;
       padding: 12px 18px;
       font-size: 0.94rem;
       font-weight: 800;
@@ -137,9 +144,9 @@
     }
 
     .exercise-panel {
-      margin-top: 18px;
+      margin-top: 0;
       border: 1px solid #e5e7eb;
-      border-radius: 14px;
+      border-radius: 0;
       background: #f9fafb;
       padding: 16px;
       text-align: left;
@@ -180,7 +187,7 @@
       margin-top: 10px;
       font-size: 0.9rem;
       padding: 10px 12px;
-      border-radius: 10px;
+      border-radius: 0;
       background: #f9fafb;
       border: 1px solid #e5e7eb;
       text-align: left;
@@ -215,6 +222,12 @@
       align-items: center;
       justify-content: center;
     }
+
+    @media (max-width: 920px) {
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
@@ -226,52 +239,54 @@
       <button id="therapistChatBtn" class="btn btn-primary" type="button" aria-label="1:1 채팅 열기">+</button>
     </div>
 
-    <section class="panel" aria-label="환자 목록">
-      <h2>환자 목록</h2>
-      <div class="patient-list">
-        <div class="patient-item">
-          <div class="patient-main">
-            <img
-              class="avatar"
-              alt="공백 프로필 이미지"
-              src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='88' height='88'><rect width='88' height='88' fill='white'/></svg>"
-            />
-            <div class="patient-name">김환자</div>
+    <div class="dashboard-grid">
+      <section class="panel" aria-label="환자 목록">
+        <h2>환자 목록</h2>
+        <div class="patient-list">
+          <div class="patient-item">
+            <div class="patient-main">
+              <img
+                class="avatar"
+                alt="공백 프로필 이미지"
+                src="./assets/kim-profile.png"
+              />
+              <div class="patient-name">김환자</div>
+            </div>
+            <button id="selectPatientBtn" class="btn btn-outline" type="button">
+              선택
+            </button>
           </div>
-          <button id="selectPatientBtn" class="btn btn-outline" type="button">
-            선택
-          </button>
         </div>
-      </div>
-      <div id="patientAlertBox" class="patient-alert-box"></div>
-    </section>
+        <div id="patientAlertBox" class="patient-alert-box"></div>
+      </section>
 
-    <section id="exercisePanel" class="exercise-panel" aria-label="운동 선택">
-      <h2>처방 운동 선택</h2>
-      <p>김환자에게 처방할 운동을 선택해 주세요.</p>
-      <div class="exercise-list">
-        <label class="exercise-item">
-          <input type="checkbox" value="스트레칭" />
-          <span>전신 스트레칭</span>
-        </label>
-        <label class="exercise-item">
-          <input type="checkbox" value="근력운동" />
-          <span>가벼운 근력 운동</span>
-        </label>
-        <label class="exercise-item">
-          <input type="checkbox" value="호흡운동" />
-          <span>호흡/이완 운동</span>
-        </label>
-        <label class="exercise-item">
-          <input type="checkbox" value="균형훈련" />
-          <span>균형 잡기 훈련</span>
-        </label>
-      </div>
-      <div class="exercise-actions">
-        <button id="saveExerciseBtn" class="btn btn-primary" type="button">운동 선택 완료</button>
-      </div>
-      <div id="exerciseMessage" class="exercise-message"></div>
-    </section>
+      <section id="exercisePanel" class="exercise-panel" aria-label="운동 선택">
+        <h2>처방 운동 선택</h2>
+        <p>김환자에게 처방할 운동을 선택해 주세요.</p>
+        <div class="exercise-list">
+          <label class="exercise-item">
+            <input type="checkbox" value="스트레칭" />
+            <span>전신 스트레칭</span>
+          </label>
+          <label class="exercise-item">
+            <input type="checkbox" value="근력운동" />
+            <span>가벼운 근력 운동</span>
+          </label>
+          <label class="exercise-item">
+            <input type="checkbox" value="호흡운동" />
+            <span>호흡/이완 운동</span>
+          </label>
+          <label class="exercise-item">
+            <input type="checkbox" value="균형훈련" />
+            <span>균형 잡기 훈련</span>
+          </label>
+        </div>
+        <div class="exercise-actions">
+          <button id="saveExerciseBtn" class="btn btn-primary" type="button">운동 선택 완료</button>
+        </div>
+        <div id="exerciseMessage" class="exercise-message"></div>
+      </section>
+    </div>
   </main>
   <script>
     const selectPatientBtn = document.getElementById("selectPatientBtn");

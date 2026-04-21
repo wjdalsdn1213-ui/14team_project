@@ -40,7 +40,7 @@
     .container {
       width: min(560px, 100%);
       background: var(--card-bg);
-      border-radius: 18px;
+      border-radius: 0;
       box-shadow: 0 12px 30px rgba(17, 24, 39, 0.12);
       padding: 28px 28px 34px;
       text-align: center;
@@ -48,7 +48,7 @@
 
     .top-banner {
       width: 100%;
-      border-radius: 16px;
+      border-radius: 0;
       border: 1px solid #e5e7eb;
       background: linear-gradient(135deg, #ffffff, #eff6ff);
       padding: 14px 14px;
@@ -62,7 +62,7 @@
     .banner-logo {
       width: 54px;
       height: 54px;
-      border-radius: 16px;
+      border-radius: 0;
       border: 1px solid #e5e7eb;
       background: #fff;
       display: grid;
@@ -111,7 +111,7 @@
       text-align: left;
       display: none;
       border: 1px solid #e5e7eb;
-      border-radius: 12px;
+      border-radius: 0;
       padding: 16px;
       background: #f9fafb;
     }
@@ -126,7 +126,7 @@
       gap: 16px;
       align-items: center;
       padding: 12px;
-      border-radius: 14px;
+      border-radius: 0;
       background: #ffffff;
       border: 1px solid #e5e7eb;
       margin-bottom: 12px;
@@ -135,7 +135,7 @@
     .patient-avatar {
       width: 96px;
       height: 96px;
-      border-radius: 18px;
+      border-radius: 0;
       border: 1px dashed #cbd5e1;
       background: #ffffff;
       object-fit: contain;
@@ -161,7 +161,7 @@
     input {
       width: 100%;
       border: 1px solid #d1d5db;
-      border-radius: 10px;
+      border-radius: 0;
       padding: 10px 12px;
       font-size: 0.96rem;
       outline: none;
@@ -176,7 +176,7 @@
     .btn {
       width: 100%;
       border: 0;
-      border-radius: 999px;
+      border-radius: 0;
       padding: 14px 18px;
       font-size: 1rem;
       font-weight: 800;
@@ -246,8 +246,8 @@
     <h1>환영합니다</h1>
     <p>원하시는 이용 유형을 선택하고 시작해 주세요.</p>
     <div class="button-group">
-      <button id="patientStartBtn" class="btn btn-patient" type="button">환자용으로 시작하기</button>
-      <button id="therapistStartBtn" class="btn btn-therapist" type="button">치료사용으로 시작하기</button>
+      <button id="patientStartBtn" class="btn btn-patient" type="button">환자 로그인</button>
+      <button id="therapistStartBtn" class="btn btn-therapist" type="button">치료사 로그인</button>
     </div>
 
     <section id="patientPanel" class="panel" aria-live="polite">
@@ -256,7 +256,7 @@
           id="patientAvatar"
           class="patient-avatar"
           alt="공백 프로필 이미지"
-          src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><rect width='200' height='200' fill='white'/></svg>"
+          src="./assets/kim-profile.png"
         />
 
         <div class="info-grid">
