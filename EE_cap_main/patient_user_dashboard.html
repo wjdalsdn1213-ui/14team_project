@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>환자용 대시보드</title>
+  <title>환자 대시보드</title>
   <style>
     :root {
       --bg-start: #f5f9ff;
@@ -526,8 +526,8 @@
 </head>
 <body>
   <main class="container">
-    <h1>환자용 대시보드</h1>
-    <p id="subText">김환자님의 운동 안내</p>
+    <h1>환자 대시보드</h1>
+    <p id="subText">김○○님의 운동 안내</p>
 
     <section class="patient-top" aria-label="환자 정보">
       <img
@@ -538,7 +538,7 @@
       <div class="patient-info">
         <div class="info-row">
           <div class="k">성함</div>
-          <div class="v" id="dashName">김환자</div>
+          <div class="v" id="dashName">김○○</div>
         </div>
         <div class="info-row">
           <div class="k">주민등록번호</div>
@@ -713,7 +713,11 @@
       ],
     };
 
-    const patientName = localStorage.getItem("patientName") || "김환자";
+    let patientName = localStorage.getItem("patientName") || "김○○";
+    if (patientName === "김환자") {
+      patientName = "김○○";
+      localStorage.setItem("patientName", patientName);
+    }
     document.getElementById("dashName").textContent = patientName;
     const subText = document.getElementById("subText");
     subText.textContent = patientName + "님의 운동 안내";
@@ -851,6 +855,24 @@
     const mpStatus = document.getElementById("mpStatus");
     const mpResult = document.getElementById("mpResult");
     const mpFileName = document.getElementById("mpFileName");
+
+    const MP_THERAPIST_KEY = "mpAnalysisForTherapist";
+    function shareAnalysisWithTherapist(source, text) {
+      if (typeof text !== "string" || !text.trim()) return;
+      try {
+        localStorage.setItem(
+          MP_THERAPIST_KEY,
+          JSON.stringify({
+            text: text.trim(),
+            at: new Date().toISOString(),
+            source: source,
+            patientName: (typeof localStorage !== "undefined" && localStorage.getItem("patientName")) || "김○○",
+          })
+        );
+      } catch (e) {
+        /* storage full or private mode */
+      }
+    }
 
     let objectUrl = null;
     let poseLandmarker = null;
@@ -997,6 +1019,10 @@
         mpCanvas.style.display = "none";
       }
       syncAnalyzeButtonLabel();
+      const liveTxt = mpResult && mpResult.textContent ? mpResult.textContent : "";
+      if (liveTxt && liveTxt.indexOf("골격이 검출되면 이곳에") === -1) {
+        shareAnalysisWithTherapist("live", liveTxt);
+      }
     }
 
     function disconnectWebcam() {
@@ -1366,7 +1392,9 @@
         lines.push("※ 수치는 참고용이며, 불편이 있으면 의료·운동 전문가와 상담하세요.");
       }
 
-      mpResult.textContent = lines.join("\n");
+      const summaryText = lines.join("\n");
+      mpResult.textContent = summaryText;
+      shareAnalysisWithTherapist("file", summaryText);
       mpStatus.textContent = "분석이 완료되었습니다. (마지막 프레임에 뼈대가 그려졌습니다.)";
       analyzing = false;
       mpAnalyzeBtn.disabled = false;

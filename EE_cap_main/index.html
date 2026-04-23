@@ -262,7 +262,7 @@
         <div class="info-grid">
           <div class="field" style="margin-bottom: 0;">
             <label for="patientName">성함</label>
-            <input id="patientName" type="text" value="김환자" readonly />
+            <input id="patientName" type="text" value="김○○" readonly />
           </div>
 
           <div class="field" style="margin-bottom: 0;">
@@ -334,7 +334,7 @@
     });
 
     patientSubmitBtn.addEventListener("click", function () {
-      // 환자 로그인 성공 시 환자용 대시보드로 이동
+      // 환자 로그인 성공 시 환자 대시보드로 이동
       patientMessage.textContent = "";
       patientMessage.className = "message";
       window.location.href = "patient_user_dashboard.html";
