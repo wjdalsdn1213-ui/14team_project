@@ -1,0 +1,92 @@
+import { Exercise } from '@/lib/types';
+
+export const MOCK_EXERCISES: Exercise[] = [
+  {
+    id: 'ex-1',
+    name: '어깨 외회전',
+    description: '밴드를 이용해 팔꿈치를 90도로 구부린 채 팔을 바깥쪽으로 회전합니다.',
+    bodyPart: 'shoulder',
+    defaultReps: 15,
+    defaultSets: 3,
+  },
+  {
+    id: 'ex-2',
+    name: '어깨 전방 굴곡',
+    description: '팔을 앞으로 천천히 들어 올려 귀 옆까지 올립니다.',
+    bodyPart: 'shoulder',
+    defaultReps: 12,
+    defaultSets: 3,
+  },
+  {
+    id: 'ex-3',
+    name: '무릎 신전 운동',
+    description: '의자에 앉아 무릎을 완전히 펴는 동작을 반복합니다.',
+    bodyPart: 'knee',
+    defaultReps: 20,
+    defaultSets: 3,
+  },
+  {
+    id: 'ex-4',
+    name: '미니 스쿼트',
+    description: '발을 어깨 너비로 벌리고 무릎을 30도만 구부립니다.',
+    bodyPart: 'knee',
+    defaultReps: 15,
+    defaultSets: 3,
+  },
+  {
+    id: 'ex-5',
+    name: '고양이-낙타 스트레칭',
+    description: '네 발 자세에서 등을 위아래로 움직이는 허리 스트레칭입니다.',
+    bodyPart: 'back',
+    defaultReps: 10,
+    defaultSets: 2,
+  },
+  {
+    id: 'ex-6',
+    name: '요방형근 스트레칭',
+    description: '옆으로 누워 상체를 천천히 회전하는 스트레칭입니다.',
+    bodyPart: 'back',
+    defaultReps: 10,
+    defaultSets: 2,
+  },
+  {
+    id: 'ex-7',
+    name: '힙 에이브덕션',
+    description: '옆으로 누워 위쪽 다리를 들어올리는 운동입니다.',
+    bodyPart: 'hip',
+    defaultReps: 15,
+    defaultSets: 3,
+  },
+  {
+    id: 'ex-8',
+    name: '클램쉘 운동',
+    description: '옆으로 누워 조개껍데기처럼 무릎을 벌렸다 모으는 운동입니다.',
+    bodyPart: 'hip',
+    defaultReps: 15,
+    defaultSets: 3,
+  },
+  {
+    id: 'ex-9',
+    name: '발목 펌프 운동',
+    description: '앉거나 누워서 발을 위아래로 반복해서 굽히는 운동입니다.',
+    bodyPart: 'ankle',
+    defaultReps: 20,
+    defaultSets: 3,
+  },
+  {
+    id: 'ex-10',
+    name: '발목 원 그리기',
+    description: '발목을 시계 방향, 반시계 방향으로 원을 그리듯 돌립니다.',
+    bodyPart: 'ankle',
+    defaultReps: 10,
+    defaultSets: 2,
+  },
+];
+
+export const BODY_PART_LABELS: Record<string, string> = {
+  shoulder: '어깨',
+  knee: '무릎',
+  back: '허리',
+  hip: '고관절',
+  ankle: '발목',
+};

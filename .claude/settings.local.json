@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//home/userjeon/**)",
+      "Bash(npx create-next-app@14 rehab-app --typescript --tailwind --eslint --app --no-src-dir --import-alias \"@/*\" --yes)",
+      "Read(//tmp/**)",
+      "Bash(npx create-next-app@14 rehab-temp --typescript --tailwind --eslint --app --no-src-dir --import-alias \"@/*\" --yes)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "Bash(pkill -f \"next dev\")",
+      "Bash(lsof -ti:3000)",
+      "Bash(xargs kill -9)",
+      "Bash(grep -E \"^\\(tailwindcss|autoprefixer|postcss\\)$\")",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(curl -s http://localhost:3000/therapist/dashboard)",
+      "Bash(echo \"Started PID $!\")"
+    ]
+  }
+}
