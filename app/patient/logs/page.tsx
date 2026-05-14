@@ -49,12 +49,12 @@ export default function PatientLogsPage() {
       ) : (
         <div className="space-y-3">
           {sorted.map(log => {
-            const ex = MOCK_EXERCISES.find(e => e.id === log.exerciseId);
+            const exName = log.exerciseName ?? MOCK_EXERCISES.find(e => e.id === log.exerciseId)?.name ?? log.exerciseId;
             return (
               <Card key={log.id} className="px-5 py-4">
                 <div className="flex items-start justify-between mb-2">
                   <div>
-                    <p className="text-sm font-bold text-slate-800">{ex?.name ?? log.exerciseId}</p>
+                    <p className="text-sm font-bold text-slate-800">{exName}</p>
                     <p className="text-xs text-slate-400 mt-0.5">{formatDate(log.date)}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">

@@ -75,11 +75,11 @@ export default function PatientCalendarPage() {
         ) : (
           <div className="space-y-3">
             {popupLogs.map(log => {
-              const ex = MOCK_EXERCISES.find(e => e.id === log.exerciseId);
+              const exName = log.exerciseName ?? MOCK_EXERCISES.find(e => e.id === log.exerciseId)?.name;
               return (
                 <div key={log.id} className="bg-slate-50 rounded-2xl px-4 py-3.5">
                   <div className="flex items-start justify-between mb-2">
-                    <p className="text-sm font-bold text-slate-800">{ex?.name}</p>
+                    <p className="text-sm font-bold text-slate-800">{exName}</p>
                     <span className={`text-xs px-2 py-1 rounded-lg font-semibold ${getPainBgColor(log.painScore)}`}>통증 {log.painScore}</span>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-slate-500">

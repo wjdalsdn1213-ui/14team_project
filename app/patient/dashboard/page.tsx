@@ -10,6 +10,13 @@ import PainTrendChart from '@/components/charts/PainTrendChart';
 import EmptyState from '@/components/ui/EmptyState';
 import Link from 'next/link';
 
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+
+function getTodayLabel(): string {
+  const d = new Date();
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 · ${WEEKDAYS[d.getDay()]}요일`;
+}
+
 export default function PatientDashboard() {
   const { currentUser, getPatientLogs, getPatientPrescription } = useApp();
   if (!currentUser) return null;
@@ -18,7 +25,7 @@ export default function PatientDashboard() {
   const prescription = getPatientPrescription(currentUser.id);
   const stats = getPatientStats(logs, prescription);
 
-  const todayStr = '2026-05-07';
+  const todayStr = new Date().toISOString().split('T')[0];
   const todayLogs = logs.filter(l => l.date === todayStr);
   const todayExercises = prescription?.exercises ?? [];
   const completedIds = new Set(todayLogs.map(l => l.exerciseId));
@@ -33,7 +40,7 @@ export default function PatientDashboard() {
     <div className="p-8 max-w-2xl mx-auto">
       {/* 헤더 */}
       <div className="mb-8">
-        <p className="text-sm font-medium text-slate-400 mb-1">2026년 5월 7일 · 목요일</p>
+        <p className="text-sm font-medium text-slate-400 mb-1">{getTodayLabel()}</p>
         <h1 className="text-3xl font-bold text-slate-900">
           안녕하세요, <span className="text-blue-600">{currentUser.name}</span>님
         </h1>
@@ -116,7 +123,7 @@ export default function PatientDashboard() {
           ) : (
             <div className="space-y-2.5">
               {todayExercises.map(pe => {
-                const ex = MOCK_EXERCISES.find(e => e.id === pe.exerciseId);
+                const exName = pe.exerciseName ?? MOCK_EXERCISES.find(e => e.id === pe.exerciseId)?.name;
                 const done = completedIds.has(pe.exerciseId);
                 const log = todayLogs.find(l => l.exerciseId === pe.exerciseId);
                 return (
@@ -127,7 +134,7 @@ export default function PatientDashboard() {
                         {done ? '✓' : ''}
                       </div>
                       <div>
-                        <p className={`text-sm font-semibold ${done ? 'text-emerald-800' : 'text-slate-800'}`}>{ex?.name}</p>
+                        <p className={`text-sm font-semibold ${done ? 'text-emerald-800' : 'text-slate-800'}`}>{exName}</p>
                         <p className="text-xs text-slate-400 mt-0.5">{pe.targetSets}세트 × {pe.targetReps}회</p>
                       </div>
                     </div>

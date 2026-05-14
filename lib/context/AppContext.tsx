@@ -1,12 +1,18 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import { User, ExerciseLog, Prescription, Message, PatientProfile, TherapistComment, PrescribedExercise } from '@/lib/types';
-import { MOCK_USERS, MOCK_ACCOUNTS } from '@/lib/mock-data/users';
-import { MOCK_LOGS } from '@/lib/mock-data/logs';
-import { MOCK_PRESCRIPTIONS } from '@/lib/mock-data/prescriptions';
-import { MOCK_MESSAGES } from '@/lib/mock-data/messages';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import {
+  User, ExerciseLog, Prescription, Message, PatientProfile,
+  TherapistComment, PrescribedExercise,
+} from '@/lib/types';
 import { MOCK_PROFILES, MOCK_COMMENTS } from '@/lib/mock-data/profiles';
+import {
+  apiLogin, apiFetchPatients, apiCreateLog,
+  apiFetchMyLogs, apiFetchPatientLogs,
+  apiFetchMyPrescription, apiFetchPatientPrescription,
+  apiFetchAISummary, apiFetchUser,
+  saveToken, saveUser, loadSavedUser, clearSession,
+} from '@/lib/api';
 
 interface AppContextType {
   currentUser: User | null;
@@ -16,9 +22,10 @@ interface AppContextType {
   messages: Message[];
   profiles: PatientProfile[];
   comments: TherapistComment[];
-  login: (email: string, password: string) => boolean;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<User | null>;
   logout: () => void;
-  addLog: (log: ExerciseLog) => void;
+  addLog: (log: ExerciseLog) => Promise<void>;
   addPrescription: (presc: Prescription) => void;
   addExercisesToPrescription: (prescriptionId: string, exercises: PrescribedExercise[]) => void;
   sendMessage: (msg: Message) => void;
@@ -29,30 +36,96 @@ interface AppContextType {
   getPatientComments: (patientId: string) => TherapistComment[];
   getConversation: (userId1: string, userId2: string) => Message[];
   getTherapistPatients: (therapistId: string) => User[];
+  getAISummary: (patientId: string) => Promise<string>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
 
+async function loadDataForUser(
+  user: User,
+  setUsers: React.Dispatch<React.SetStateAction<User[]>>,
+  setLogs: React.Dispatch<React.SetStateAction<ExerciseLog[]>>,
+  setPrescriptions: React.Dispatch<React.SetStateAction<Prescription[]>>,
+): Promise<void> {
+  if (user.role === 'patient') {
+    const [logs, presc] = await Promise.all([
+      apiFetchMyLogs(),
+      apiFetchMyPrescription(),
+    ]);
+    setLogs(logs);
+    setPrescriptions(presc ? [presc] : []);
+    if (user.therapistId) {
+      try {
+        const therapist = await apiFetchUser(user.therapistId);
+        setUsers([therapist]);
+      } catch {}
+    }
+  } else {
+    // Therapist: load patients, then their logs + prescriptions in parallel
+    const patients = await apiFetchPatients();
+    setUsers(patients);
+    const [logsArrays, prescs] = await Promise.all([
+      Promise.all(patients.map(p => apiFetchPatientLogs(p.id))),
+      Promise.all(patients.map(p => apiFetchPatientPrescription(p.id))),
+    ]);
+    setLogs(logsArrays.flat());
+    setPrescriptions(prescs.filter((p): p is Prescription => !!p));
+  }
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [logs, setLogs] = useState<ExerciseLog[]>(MOCK_LOGS);
-  const [prescriptions, setPrescriptions] = useState<Prescription[]>(MOCK_PRESCRIPTIONS);
-  const [messages, setMessages] = useState<Message[]>(MOCK_MESSAGES);
+  const [users, setUsers] = useState<User[]>([]);
+  const [logs, setLogs] = useState<ExerciseLog[]>([]);
+  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [comments, setComments] = useState<TherapistComment[]>(MOCK_COMMENTS);
+  const [loading, setLoading] = useState(false);
 
-  const login = useCallback((email: string, password: string): boolean => {
-    const account = MOCK_ACCOUNTS.find(a => a.email === email && a.password === password);
-    if (!account) return false;
-    const user = MOCK_USERS.find(u => u.id === account.userId);
-    if (!user) return false;
-    setCurrentUser(user);
-    return true;
+  // Restore session from localStorage on mount
+  useEffect(() => {
+    const savedUser = loadSavedUser();
+    if (!savedUser) return;
+    setCurrentUser(savedUser);
+    setLoading(true);
+    loadDataForUser(savedUser, setUsers, setLogs, setPrescriptions)
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
-  const logout = useCallback(() => setCurrentUser(null), []);
+  const login = useCallback(async (email: string, password: string): Promise<User | null> => {
+    try {
+      const { token, user } = await apiLogin(email, password);
+      saveToken(token);
+      saveUser(user);
+      setCurrentUser(user);
+      setLoading(true);
+      await loadDataForUser(user, setUsers, setLogs, setPrescriptions);
+      return user;
+    } catch {
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const addLog = useCallback((log: ExerciseLog) => {
-    setLogs(prev => [...prev, log]);
+  const logout = useCallback(() => {
+    clearSession();
+    setCurrentUser(null);
+    setUsers([]);
+    setLogs([]);
+    setPrescriptions([]);
+  }, []);
+
+  const addLog = useCallback(async (log: ExerciseLog): Promise<void> => {
+    try {
+      const { id: _clientId, ...rest } = log;
+      const saved = await apiCreateLog(rest);
+      setLogs(prev => [...prev, saved]);
+    } catch {
+      // Optimistic fallback if API call fails
+      setLogs(prev => [...prev, log]);
+    }
   }, []);
 
   const addPrescription = useCallback((presc: Prescription) => {
@@ -103,19 +176,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   }, [messages]);
 
-  const getTherapistPatients = useCallback((therapistId: string) => {
-    return MOCK_USERS.filter(u => u.role === 'patient' && u.therapistId === therapistId);
+  const getTherapistPatients = useCallback((_therapistId: string) => {
+    return users.filter(u => u.role === 'patient');
+  }, [users]);
+
+  const getAISummary = useCallback((patientId: string): Promise<string> => {
+    return apiFetchAISummary(patientId);
   }, []);
 
   return (
     <AppContext.Provider value={{
       currentUser,
-      users: MOCK_USERS,
+      users,
       logs,
       prescriptions,
       messages,
       profiles: MOCK_PROFILES,
       comments,
+      loading,
       login,
       logout,
       addLog,
@@ -129,6 +207,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       getPatientComments,
       getConversation,
       getTherapistPatients,
+      getAISummary,
     }}>
       {children}
     </AppContext.Provider>

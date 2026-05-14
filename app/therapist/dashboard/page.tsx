@@ -6,6 +6,13 @@ import Card from '@/components/ui/Card';
 import ProgressBar from '@/components/ui/ProgressBar';
 import Link from 'next/link';
 
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+
+function getTodayLabel(): string {
+  const d = new Date();
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 · ${WEEKDAYS[d.getDay()]}요일`;
+}
+
 const ATTENTION_CONFIG = {
   critical: { label: '즉시 확인', labelStyle: 'text-red-500',   border: 'border-l-[3px] border-l-red-400' },
   warning:  { label: '관심 필요', labelStyle: 'text-amber-500', border: 'border-l-[3px] border-l-amber-400' },
@@ -33,7 +40,7 @@ export default function TherapistDashboard() {
     <div className="p-8 max-w-3xl mx-auto">
       {/* 헤더 */}
       <div className="mb-8">
-        <p className="text-sm font-medium text-slate-400 mb-1">2026년 5월 7일 · 목요일</p>
+        <p className="text-sm font-medium text-slate-400 mb-1">{getTodayLabel()}</p>
         <h1 className="text-3xl font-bold text-slate-900">환자 현황</h1>
         <p className="text-slate-500 mt-1">담당 환자 {patients.length}명의 재활 현황을 확인하세요.</p>
       </div>

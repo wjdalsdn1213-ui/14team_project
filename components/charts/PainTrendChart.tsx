@@ -67,9 +67,9 @@ export default function PainTrendChart({ logs, daysBack = 14 }: PainTrendChartPr
           stroke="#3b82f6"
           strokeWidth={2.5}
           fill="url(#painGrad)"
-          dot={false}
+          dot={{ r: 4, fill: '#3b82f6', stroke: '#fff', strokeWidth: 2 }}
           activeDot={{ r: 5, fill: '#2563eb', strokeWidth: 2, stroke: '#fff' }}
-          connectNulls={false}
+          connectNulls={true}
         />
       </AreaChart>
     </ResponsiveContainer>

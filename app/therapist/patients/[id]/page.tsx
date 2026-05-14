@@ -1,10 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useApp } from '@/lib/context/AppContext';
 import { useToast } from '@/lib/context/ToastContext';
-import { MOCK_USERS } from '@/lib/mock-data/users';
 import { MOCK_EXERCISES } from '@/lib/mock-data/exercises';
 import {
   getPatientStats, generateAISummary, getPainBgColor,
@@ -39,7 +38,12 @@ const ATTENTION_CONFIG = {
 
 export default function PatientDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { getPatientLogs, getPatientPrescription, getPatientProfile, getPatientComments, addComment, currentUser } = useApp();
+  const {
+    users,
+    getPatientLogs, getPatientPrescription, getPatientProfile,
+    getPatientComments, addComment, addExercisesToPrescription,
+    currentUser, getAISummary,
+  } = useApp();
   const { showToast } = useToast();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('overview');
@@ -47,20 +51,40 @@ export default function PatientDetailPage() {
   const [savingComment, setSavingComment] = useState(false);
   const [calPopupDate, setCalPopupDate] = useState<string | null>(null);
   const [calPopupLogs, setCalPopupLogs] = useState<ReturnType<typeof getPatientLogs>>([]);
+  const [addExModalOpen, setAddExModalOpen] = useState(false);
+  const [selectedExId, setSelectedExId] = useState('');
+  const [addReps, setAddReps] = useState(10);
+  const [addSets, setAddSets] = useState(3);
+  const [aiSummary, setAiSummary] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
 
-  const patient = MOCK_USERS.find(u => u.id === id);
-  if (!patient) return <div className="p-8 text-slate-400">환자를 찾을 수 없습니다.</div>;
+  // Look up patient from API-loaded users list
+  const patient = users.find(u => u.id === id);
 
-  const logs = getPatientLogs(patient.id);
-  const prescription = getPatientPrescription(patient.id);
-  const profile = getPatientProfile(patient.id);
-  const patientComments = getPatientComments(patient.id);
+  const logs = patient ? getPatientLogs(patient.id) : [];
+  const prescription = patient ? getPatientPrescription(patient.id) : undefined;
+  const profile = patient ? getPatientProfile(patient.id) : undefined;
+  const patientComments = patient ? getPatientComments(patient.id) : [];
   const stats = getPatientStats(logs, prescription);
-  const aiSummary = generateAISummary(patient.name, stats, logs.slice(-10));
   const cfg = ATTENTION_CONFIG[stats.attentionLevel];
   const recentLogs = [...logs]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 10);
+
+  // Fetch AI summary from API, fall back to local generation
+  useEffect(() => {
+    if (!patient) return;
+    setAiLoading(true);
+    getAISummary(patient.id)
+      .then(summary => setAiSummary(summary))
+      .catch(() => setAiSummary(generateAISummary(patient.name, stats, logs.slice(-10))))
+      .finally(() => setAiLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patient?.id]);
+
+  if (!patient) {
+    return <div className="p-8 text-slate-400">환자를 찾을 수 없습니다.</div>;
+  }
 
   const painColor =
     stats.avgPainScore <= 3 ? 'text-emerald-600'
@@ -68,6 +92,23 @@ export default function PatientDetailPage() {
     : 'text-red-600';
 
   const statusStyle = profile ? STATUS_LABEL[profile.status] : null;
+
+  const prescribedIds = new Set(prescription?.exercises.map(e => e.exerciseId) ?? []);
+  const availableExercises = MOCK_EXERCISES.filter(e => !prescribedIds.has(e.id));
+
+  const handleSelectExercise = (exId: string) => {
+    setSelectedExId(exId);
+    const ex = MOCK_EXERCISES.find(e => e.id === exId);
+    if (ex) { setAddReps(ex.defaultReps); setAddSets(ex.defaultSets); }
+  };
+
+  const handleAddExercise = () => {
+    if (!prescription || !selectedExId) return;
+    addExercisesToPrescription(prescription.id, [{ exerciseId: selectedExId, targetReps: addReps, targetSets: addSets }]);
+    setAddExModalOpen(false);
+    setSelectedExId('');
+    showToast('운동이 처방에 추가됐습니다!');
+  };
 
   const handleSaveComment = async () => {
     if (!commentText.trim() || !currentUser) return;
@@ -121,7 +162,6 @@ export default function PatientDetailPage() {
             </div>
           </div>
 
-          {/* 진단명 카드 */}
           {profile && (
             <div className="ml-0 bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4">
               <div className="flex items-start gap-3">
@@ -195,11 +235,15 @@ export default function PatientDetailPage() {
               </div>
               <div>
                 <h2 className="font-bold text-slate-900">AI 재활 요약</h2>
-                <p className="text-xs text-slate-400">Mock AI 분석 결과</p>
+                <p className="text-xs text-slate-400">AI 분석 결과</p>
               </div>
             </div>
-            <div className="bg-slate-50 rounded-2xl p-4">
-              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{aiSummary}</p>
+            <div className="bg-slate-50 rounded-2xl p-4 min-h-[80px] flex items-center justify-center">
+              {aiLoading ? (
+                <Spinner />
+              ) : (
+                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line w-full">{aiSummary}</p>
+              )}
             </div>
           </Card>
           <Card className="p-6">
@@ -215,15 +259,20 @@ export default function PatientDetailPage() {
           {prescription && (
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="font-bold text-slate-900">현재 처방</h2>
-                <span className="text-xs text-slate-400">{prescription.startDate}{prescription.endDate ? ` ~ ${prescription.endDate}` : ' ~ 진행 중'}</span>
+                <div>
+                  <h2 className="font-bold text-slate-900">현재 처방</h2>
+                  <span className="text-xs text-slate-400">{prescription.startDate}{prescription.endDate ? ` ~ ${prescription.endDate}` : ' ~ 진행 중'}</span>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => { setSelectedExId(''); setAddExModalOpen(true); }}>
+                  + 처방 추가
+                </Button>
               </div>
               <div className="divide-y divide-slate-50">
                 {prescription.exercises.map(pe => {
-                  const ex = MOCK_EXERCISES.find(e => e.id === pe.exerciseId);
+                  const exName = pe.exerciseName ?? MOCK_EXERCISES.find(e => e.id === pe.exerciseId)?.name;
                   return (
                     <div key={pe.exerciseId} className="flex items-center justify-between py-3">
-                      <span className="text-sm font-medium text-slate-800">{ex?.name}</span>
+                      <span className="text-sm font-medium text-slate-800">{exName}</span>
                       <span className="text-xs text-slate-400 font-medium">{pe.targetSets}세트 × {pe.targetReps}회</span>
                     </div>
                   );
@@ -276,11 +325,11 @@ export default function PatientDetailPage() {
             ) : (
               <div className="space-y-3">
                 {calPopupLogs.map(log => {
-                  const ex = MOCK_EXERCISES.find(e => e.id === log.exerciseId);
+                  const exName = log.exerciseName ?? MOCK_EXERCISES.find(e => e.id === log.exerciseId)?.name;
                   return (
                     <div key={log.id} className="bg-slate-50 rounded-2xl px-4 py-3.5">
                       <div className="flex items-start justify-between mb-2">
-                        <p className="text-sm font-bold text-slate-800">{ex?.name}</p>
+                        <p className="text-sm font-bold text-slate-800">{exName}</p>
                         <span className={`text-xs px-2 py-1 rounded-lg font-semibold ${getPainBgColor(log.painScore)}`}>통증 {log.painScore}</span>
                       </div>
                       <div className="flex items-center gap-3 text-xs text-slate-500">
@@ -298,6 +347,58 @@ export default function PatientDetailPage() {
         </>
       )}
 
+      {/* 처방 추가 모달 */}
+      <Modal
+        isOpen={addExModalOpen}
+        onClose={() => setAddExModalOpen(false)}
+        title="운동 추가"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-slate-500 block mb-2">운동 선택</label>
+            {availableExercises.length === 0 ? (
+              <p className="text-sm text-slate-400 py-2">추가 가능한 운동이 없습니다.</p>
+            ) : (
+              <select
+                value={selectedExId}
+                onChange={e => handleSelectExercise(e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">운동을 선택하세요</option>
+                {availableExercises.map(ex => (
+                  <option key={ex.id} value={ex.id}>{ex.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
+          {selectedExId && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-slate-500 block mb-2">세트 수</label>
+                <input
+                  type="number" min={1} max={10} value={addSets}
+                  onChange={e => setAddSets(Number(e.target.value))}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-500 block mb-2">반복 횟수</label>
+                <input
+                  type="number" min={1} max={100} value={addReps}
+                  onChange={e => setAddReps(Number(e.target.value))}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="ghost" size="sm" onClick={() => setAddExModalOpen(false)}>취소</Button>
+            <Button size="sm" onClick={handleAddExercise} disabled={!selectedExId}>추가하기</Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* 기록 */}
       {tab === 'records' && (
         <Card className="p-6">
@@ -310,12 +411,12 @@ export default function PatientDetailPage() {
           ) : (
             <div className="space-y-3">
               {recentLogs.map(log => {
-                const ex = MOCK_EXERCISES.find(e => e.id === log.exerciseId);
+                const exName = log.exerciseName ?? MOCK_EXERCISES.find(e => e.id === log.exerciseId)?.name;
                 return (
                   <div key={log.id} className="bg-slate-50 rounded-2xl p-4">
                     <div className="flex items-start justify-between mb-2">
                       <div>
-                        <p className="text-sm font-bold text-slate-800">{ex?.name}</p>
+                        <p className="text-sm font-bold text-slate-800">{exName}</p>
                         <p className="text-xs text-slate-400 mt-0.5">{formatDate(log.date)}</p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -336,7 +437,6 @@ export default function PatientDetailPage() {
       {/* 코멘트 */}
       {tab === 'comments' && (
         <div className="space-y-4">
-          {/* 작성 영역 */}
           <Card className="p-5">
             <h2 className="font-bold text-slate-900 mb-3">코멘트 작성</h2>
             <textarea
@@ -354,7 +454,6 @@ export default function PatientDetailPage() {
             </div>
           </Card>
 
-          {/* 기존 코멘트 */}
           {patientComments.length === 0 ? (
             <Card className="py-4">
               <EmptyState

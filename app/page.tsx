@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useApp } from '@/lib/context/AppContext';
 import Button from '@/components/ui/Button';
+import Spinner from '@/components/ui/Spinner';
 
 export default function LoginPage() {
   const { login } = useApp();
@@ -11,21 +12,35 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const ok = login(email, password);
-    if (!ok) {
+    setSubmitting(true);
+    const user = await login(email, password);
+    setSubmitting(false);
+    if (!user) {
       setError('이메일 또는 비밀번호가 올바르지 않습니다.');
       return;
     }
-    if (email.includes('rehab')) router.push('/therapist/dashboard');
-    else router.push('/patient/dashboard');
+    router.push(user.role === 'therapist' ? '/therapist/dashboard' : '/patient/dashboard');
   };
 
-  const fillPatient = () => { setEmail('seoyeon@email.com'); setPassword('1234'); setError(''); };
-  const fillTherapist = () => { setEmail('minjun@rehab.com'); setPassword('1234'); setError(''); };
+  const handleQuickLogin = async (email: string, password: string) => {
+    setError('');
+    setSubmitting(true);
+    const user = await login(email, password);
+    setSubmitting(false);
+    if (!user) {
+      setError('로그인에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+    router.push(user.role === 'therapist' ? '/therapist/dashboard' : '/patient/dashboard');
+  };
+
+  const fillPatient = () => handleQuickLogin('lee.seoyeon@email.com', 'rehab1234');
+  const fillTherapist = () => handleQuickLogin('kimjisu@rehab.com', 'rehab1234');
 
   return (
     <div className="min-h-screen flex">
@@ -91,6 +106,7 @@ export default function LoginPage() {
                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="이메일을 입력하세요"
                 required
+                disabled={submitting}
               />
             </div>
             <div>
@@ -102,6 +118,7 @@ export default function LoginPage() {
                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="비밀번호를 입력하세요"
                 required
+                disabled={submitting}
               />
             </div>
 
@@ -111,7 +128,10 @@ export default function LoginPage() {
               </div>
             )}
 
-            <Button type="submit" size="lg" className="w-full mt-2">로그인</Button>
+            <Button type="submit" size="lg" className="w-full mt-2" disabled={submitting}>
+              {submitting ? <Spinner /> : null}
+              {submitting ? '로그인 중...' : '로그인'}
+            </Button>
           </form>
 
           <div className="mt-8">
@@ -124,7 +144,8 @@ export default function LoginPage() {
               <button
                 onClick={fillPatient}
                 type="button"
-                className="flex flex-col items-center gap-1.5 p-4 rounded-2xl bg-white border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all card-shadow"
+                disabled={submitting}
+                className="flex flex-col items-center gap-1.5 p-4 rounded-2xl bg-white border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all card-shadow disabled:opacity-50"
               >
                 <span className="text-2xl">🧑‍🦽</span>
                 <span className="text-xs font-semibold text-slate-700">환자로 입장</span>
@@ -133,7 +154,8 @@ export default function LoginPage() {
               <button
                 onClick={fillTherapist}
                 type="button"
-                className="flex flex-col items-center gap-1.5 p-4 rounded-2xl bg-white border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all card-shadow"
+                disabled={submitting}
+                className="flex flex-col items-center gap-1.5 p-4 rounded-2xl bg-white border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all card-shadow disabled:opacity-50"
               >
                 <span className="text-2xl">👨‍⚕️</span>
                 <span className="text-xs font-semibold text-slate-700">치료사로 입장</span>

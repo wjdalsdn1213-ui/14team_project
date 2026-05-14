@@ -34,32 +34,36 @@ export default function ExercisesPage() {
   const prescription = getPatientPrescription(currentUser.id);
   const prescribedExercises = prescription?.exercises ?? [];
 
-  // 처방받은 운동만 표시
-  const availableExercises = prescribedExercises
-    .map(pe => {
-      const ex = MOCK_EXERCISES.find(e => e.id === pe.exerciseId);
-      return ex ? { ...ex, prescribed: pe } : null;
-    })
-    .filter(Boolean) as (typeof MOCK_EXERCISES[0] & { prescribed: typeof prescribedExercises[0] })[];
+  const availableExercises = prescribedExercises.map(pe => {
+    const mockEx = MOCK_EXERCISES.find(e => e.id === pe.exerciseId);
+    return {
+      id: pe.exerciseId,
+      name: pe.exerciseName ?? mockEx?.name ?? pe.exerciseId,
+      bodyPart: (pe.exerciseBodyPart ?? mockEx?.bodyPart ?? 'shoulder') as typeof MOCK_EXERCISES[0]['bodyPart'],
+      description: pe.exerciseDescription ?? mockEx?.description ?? '',
+      defaultReps: pe.targetReps,
+      defaultSets: pe.targetSets,
+      prescribed: pe,
+    };
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedExId) return;
     setLoading(true);
-    await new Promise(r => setTimeout(r, 600));
 
     const log: ExerciseLog = {
-      id: `log-${Date.now()}`,
+      id: '',
       patientId: currentUser.id,
       exerciseId: selectedExId,
-      date: '2026-05-07',
+      date: new Date().toISOString().split('T')[0],
       actualReps: reps,
       actualSets: sets,
       painScore,
       difficulty,
       memo: memo || undefined,
     };
-    addLog(log);
+    await addLog(log);
     setLoading(false);
     showToast('운동 기록이 저장됐습니다!');
     setSelectedExId('');
@@ -88,13 +92,11 @@ export default function ExercisesPage() {
 
   return (
     <div className="p-8 max-w-2xl mx-auto">
-      {/* 헤더 */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-900">운동 기록</h1>
         <p className="text-slate-500 mt-1">오늘 수행한 운동을 기록하세요</p>
       </div>
 
-      {/* 처방 없음 */}
       {availableExercises.length === 0 ? (
         <Card className="py-4">
           <EmptyState

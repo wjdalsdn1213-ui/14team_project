@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useApp } from '@/lib/context/AppContext';
 import { useToast } from '@/lib/context/ToastContext';
 import { MOCK_EXERCISES, BODY_PART_LABELS } from '@/lib/mock-data/exercises';
-import { MOCK_USERS } from '@/lib/mock-data/users';
 import { Prescription, PrescribedExercise } from '@/lib/types';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -16,7 +15,7 @@ type ModalStep = 1 | 2;
 type PrescMode = 'add' | 'new';
 
 export default function PrescriptionsPage() {
-  const { currentUser, prescriptions, addPrescription, addExercisesToPrescription, getPatientPrescription } = useApp();
+  const { currentUser, users, prescriptions, addPrescription, addExercisesToPrescription, getPatientPrescription, getTherapistPatients } = useApp();
   const { showToast } = useToast();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -29,7 +28,7 @@ export default function PrescriptionsPage() {
 
   if (!currentUser) return null;
 
-  const myPatients = MOCK_USERS.filter(u => u.role === 'patient' && u.therapistId === currentUser.id);
+  const myPatients = getTherapistPatients(currentUser.id);
   const myPrescriptions = prescriptions.filter(p => p.therapistId === currentUser.id);
 
   const openModal = () => {
@@ -87,7 +86,7 @@ export default function PrescriptionsPage() {
     setIsOpen(false);
   };
 
-  const getPatient = (id: string) => MOCK_USERS.find(u => u.id === id);
+  const getPatient = (id: string) => users.find(u => u.id === id);
   const selectedPatient = getPatient(patientId);
   const existingPresc = patientId ? getPatientPrescription(patientId) : undefined;
 
@@ -147,12 +146,14 @@ export default function PrescriptionsPage() {
               <div className="px-6 py-4">
                 <div className="divide-y divide-slate-50">
                   {presc.exercises.map(pe => {
-                    const ex = MOCK_EXERCISES.find(e => e.id === pe.exerciseId);
+                    const mockEx = MOCK_EXERCISES.find(e => e.id === pe.exerciseId);
+                    const exName = pe.exerciseName ?? mockEx?.name;
+                    const exBodyPart = pe.exerciseBodyPart ?? mockEx?.bodyPart ?? '';
                     return (
                       <div key={pe.exerciseId} className="flex items-center justify-between py-3">
                         <div>
-                          <span className="text-sm font-semibold text-slate-800">{ex?.name}</span>
-                          <span className="text-xs text-slate-400 ml-2">{BODY_PART_LABELS[ex?.bodyPart ?? '']}</span>
+                          <span className="text-sm font-semibold text-slate-800">{exName}</span>
+                          <span className="text-xs text-slate-400 ml-2">{BODY_PART_LABELS[exBodyPart]}</span>
                         </div>
                         <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg tabular-nums">
                           {pe.targetSets}세트 × {pe.targetReps}회

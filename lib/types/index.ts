@@ -44,6 +44,9 @@ export interface PrescribedExercise {
   exerciseId: string;
   targetReps: number;
   targetSets: number;
+  exerciseName?: string;
+  exerciseBodyPart?: string;
+  exerciseDescription?: string;
 }
 
 export interface Prescription {
@@ -66,6 +69,8 @@ export interface ExerciseLog {
   painScore: number;
   difficulty: Difficulty;
   memo?: string;
+  exerciseName?: string;
+  exerciseBodyPart?: string;
 }
 
 export interface Message {
