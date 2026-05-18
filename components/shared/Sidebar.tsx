@@ -93,8 +93,8 @@ export default function Sidebar() {
   const navItems = currentUser.role === 'patient' ? patientNav : therapistNav;
   const roleLabel = currentUser.role === 'patient' ? '환자' : '물리치료사';
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     router.push('/');
   };
 

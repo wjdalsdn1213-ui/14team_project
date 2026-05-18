@@ -19,10 +19,10 @@ export default function ChatWindow({ messages, currentUser, otherUser }: ChatWin
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     const text = input.trim();
     if (!text) return;
-    sendMessage({
+    await sendMessage({
       id: `msg-${Date.now()}`,
       senderId: currentUser.id,
       receiverId: otherUser.id,
@@ -36,7 +36,7 @@ export default function ChatWindow({ messages, currentUser, otherUser }: ChatWin
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      void handleSend();
     }
   };
 
@@ -131,7 +131,7 @@ export default function ChatWindow({ messages, currentUser, otherUser }: ChatWin
             className="flex-1 bg-transparent resize-none text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none max-h-28"
           />
           <button
-            onClick={handleSend}
+            onClick={() => void handleSend()}
             disabled={!input.trim()}
             className="w-9 h-9 flex items-center justify-center bg-blue-600 text-white rounded-xl flex-shrink-0 disabled:opacity-30 hover:bg-blue-700 active:scale-95 transition-all shadow-sm shadow-blue-200"
           >

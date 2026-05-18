@@ -6,15 +6,16 @@ import { useApp } from '@/lib/context/AppContext';
 import Sidebar from '@/components/shared/Sidebar';
 
 export default function TherapistLayout({ children }: { children: React.ReactNode }) {
-  const { currentUser } = useApp();
+  const { currentUser, isLoading } = useApp();
   const router = useRouter();
 
   useEffect(() => {
+    if (isLoading) return;
     if (!currentUser) router.replace('/');
     else if (currentUser.role !== 'therapist') router.replace('/patient/dashboard');
-  }, [currentUser, router]);
+  }, [currentUser, isLoading, router]);
 
-  if (!currentUser || currentUser.role !== 'therapist') return null;
+  if (isLoading || !currentUser || currentUser.role !== 'therapist') return null;
 
   return (
     <div className="flex min-h-screen">

@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useApp } from '@/lib/context/AppContext';
 import { useToast } from '@/lib/context/ToastContext';
 import { MOCK_EXERCISES, BODY_PART_LABELS } from '@/lib/mock-data/exercises';
-import { MOCK_USERS } from '@/lib/mock-data/users';
 import { Prescription, PrescribedExercise } from '@/lib/types';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -16,7 +15,7 @@ type ModalStep = 1 | 2;
 type PrescMode = 'add' | 'new';
 
 export default function PrescriptionsPage() {
-  const { currentUser, prescriptions, addPrescription, addExercisesToPrescription, getPatientPrescription } = useApp();
+  const { currentUser, prescriptions, addPrescription, addExercisesToPrescription, getPatientPrescription, users } = useApp();
   const { showToast } = useToast();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -29,7 +28,7 @@ export default function PrescriptionsPage() {
 
   if (!currentUser) return null;
 
-  const myPatients = MOCK_USERS.filter(u => u.role === 'patient' && u.therapistId === currentUser.id);
+  const myPatients = users.filter(u => u.role === 'patient' && u.therapistId === currentUser.id);
   const myPrescriptions = prescriptions.filter(p => p.therapistId === currentUser.id);
 
   const openModal = () => {
@@ -63,13 +62,13 @@ export default function PrescriptionsPage() {
     setSelectedExercises(prev => prev.map(e => e.exerciseId === exId ? { ...e, [field]: val } : e));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!patientId || selectedExercises.length === 0) return;
 
     if (mode === 'add') {
       const existing = getPatientPrescription(patientId);
       if (existing) {
-        addExercisesToPrescription(existing.id, selectedExercises);
+        await addExercisesToPrescription(existing.id, selectedExercises);
         showToast(`${selectedExercises.length}개 운동이 기존 처방에 추가됐습니다!`);
       }
     } else {
@@ -81,13 +80,13 @@ export default function PrescriptionsPage() {
         startDate,
         notes: notes || undefined,
       };
-      addPrescription(presc);
+      await addPrescription(presc);
       showToast('새 처방이 저장됐습니다!');
     }
     setIsOpen(false);
   };
 
-  const getPatient = (id: string) => MOCK_USERS.find(u => u.id === id);
+  const getPatient = (id: string) => users.find(u => u.id === id);
   const selectedPatient = getPatient(patientId);
   const existingPresc = patientId ? getPatientPrescription(patientId) : undefined;
 

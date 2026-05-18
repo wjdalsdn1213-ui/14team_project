@@ -6,21 +6,21 @@ import { useApp } from '@/lib/context/AppContext';
 import Button from '@/components/ui/Button';
 
 export default function LoginPage() {
-  const { login } = useApp();
+  const { login, isLoading } = useApp();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const ok = login(email, password);
-    if (!ok) {
+    const user = await login(email, password);
+    if (!user) {
       setError('이메일 또는 비밀번호가 올바르지 않습니다.');
       return;
     }
-    if (email.includes('rehab')) router.push('/therapist/dashboard');
+    if (user.role === 'therapist') router.push('/therapist/dashboard');
     else router.push('/patient/dashboard');
   };
 

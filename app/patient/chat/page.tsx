@@ -1,14 +1,13 @@
 'use client';
 
 import { useApp } from '@/lib/context/AppContext';
-import { MOCK_USERS } from '@/lib/mock-data/users';
 import ChatWindow from '@/components/shared/ChatWindow';
 
 export default function PatientChatPage() {
-  const { currentUser, getConversation } = useApp();
+  const { currentUser, getConversation, users } = useApp();
   if (!currentUser || currentUser.role !== 'patient') return null;
 
-  const therapist = MOCK_USERS.find(u => u.id === currentUser.therapistId);
+  const therapist = users.find(u => u.id === currentUser.therapistId);
   if (!therapist)
     return (
       <div className="p-8 text-center text-slate-400">담당 치료사가 배정되지 않았습니다.</div>

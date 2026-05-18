@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useApp } from '@/lib/context/AppContext';
 import { useToast } from '@/lib/context/ToastContext';
-import { MOCK_USERS } from '@/lib/mock-data/users';
 import { MOCK_EXERCISES } from '@/lib/mock-data/exercises';
 import {
   getPatientStats, generateAISummary, getPainBgColor,
@@ -39,7 +38,7 @@ const ATTENTION_CONFIG = {
 
 export default function PatientDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { getPatientLogs, getPatientPrescription, getPatientProfile, getPatientComments, addComment, currentUser } = useApp();
+  const { getPatientLogs, getPatientPrescription, getPatientProfile, getPatientComments, addComment, currentUser, users } = useApp();
   const { showToast } = useToast();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('overview');
@@ -48,7 +47,7 @@ export default function PatientDetailPage() {
   const [calPopupDate, setCalPopupDate] = useState<string | null>(null);
   const [calPopupLogs, setCalPopupLogs] = useState<ReturnType<typeof getPatientLogs>>([]);
 
-  const patient = MOCK_USERS.find(u => u.id === id);
+  const patient = users.find(u => u.id === id);
   if (!patient) return <div className="p-8 text-slate-400">환자를 찾을 수 없습니다.</div>;
 
   const logs = getPatientLogs(patient.id);
@@ -73,7 +72,7 @@ export default function PatientDetailPage() {
     if (!commentText.trim() || !currentUser) return;
     setSavingComment(true);
     await new Promise(r => setTimeout(r, 500));
-    addComment({
+    await addComment({
       id: `cmt-${Date.now()}`,
       patientId: patient.id,
       therapistId: currentUser.id,

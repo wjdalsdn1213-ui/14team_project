@@ -2,17 +2,16 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useApp } from '@/lib/context/AppContext';
-import { MOCK_USERS } from '@/lib/mock-data/users';
 import ChatWindow from '@/components/shared/ChatWindow';
 
 export default function TherapistChatPage() {
   const { patientId } = useParams<{ patientId: string }>();
-  const { currentUser, getConversation } = useApp();
+  const { currentUser, getConversation, users } = useApp();
   const router = useRouter();
 
   if (!currentUser) return null;
 
-  const patient = MOCK_USERS.find(u => u.id === patientId);
+  const patient = users.find(u => u.id === patientId);
   if (!patient) return <div className="p-6 text-gray-400">환자를 찾을 수 없습니다.</div>;
 
   const messages = getConversation(currentUser.id, patient.id);

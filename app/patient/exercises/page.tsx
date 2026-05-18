@@ -59,7 +59,7 @@ export default function ExercisesPage() {
       difficulty,
       memo: memo || undefined,
     };
-    addLog(log);
+    await addLog(log);
     setLoading(false);
     showToast('운동 기록이 저장됐습니다!');
     setSelectedExId('');
