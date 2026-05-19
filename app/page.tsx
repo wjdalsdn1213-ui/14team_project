@@ -111,7 +111,14 @@ export default function LoginPage() {
               </div>
             )}
 
-            <Button type="submit" size="lg" className="w-full mt-2">로그인</Button>
+            <Button 
+              type="submit" 
+              size="lg" 
+              className="w-full mt-2"
+              disabled={isLoading} 
+            >
+              {isLoading ? '로그인 중...' : '로그인'}
+            </Button>
           </form>
 
           <div className="mt-8">

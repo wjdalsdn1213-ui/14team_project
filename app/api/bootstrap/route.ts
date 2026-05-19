@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// ... 기존 코드 시작 (import 등)
+
 import { fail, ok } from "@/lib/api/response";
 import { requireProfile } from "@/lib/auth/session";
 
