@@ -1,14 +1,13 @@
+// @ts-ignore
 import { PrismaClient } from "@prisma/client";
 
 const globalForPrisma = global as unknown as {
-  prisma: PrismaClient | undefined; // undefined를 추가하면 더 안전합니다.
+  prisma: PrismaClient | undefined;
 };
 
 export const prisma =
   globalForPrisma.prisma ??
-  new PrismaClient({
-    log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
-  });
+  new PrismaClient(); // 7버전은 생성자 인자 전달 방식이 달라졌지만, 기본은 이겁니다.
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;

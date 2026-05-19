@@ -9,6 +9,7 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // url만 남기고 directUrl은 삭제합니다.
+    url: process.env.DATABASE_URL,
   },
 });
