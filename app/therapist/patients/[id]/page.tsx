@@ -9,6 +9,8 @@ import {
   getPatientStats, generateAISummary, getPainBgColor,
   getDifficultyLabel, formatDate,
 } from '@/lib/utils/stats';
+import { apiFetchPrescriptionRecommend } from '@/lib/api';
+import type { PrescriptionRecommendResult, RecommendedExercise } from '@/lib/api';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -39,9 +41,10 @@ const ATTENTION_CONFIG = {
 export default function PatientDetailPage() {
   const { id } = useParams<{ id: string }>();
   const {
-    users,
+    users, exercises,
     getPatientLogs, getPatientPrescription, getPatientProfile,
     getPatientComments, addComment, addExercisesToPrescription,
+    updatePrescribedExercise, removePrescribedExercise,
     currentUser, getAISummary,
   } = useApp();
   const { showToast } = useToast();
@@ -57,6 +60,21 @@ export default function PatientDetailPage() {
   const [addSets, setAddSets] = useState(3);
   const [aiSummary, setAiSummary] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [recResult, setRecResult] = useState<PrescriptionRecommendResult | null>(null);
+  const [recLoading, setRecLoading] = useState(false);
+  const [recError, setRecError] = useState('');
+  const [showRecModal, setShowRecModal] = useState(false);
+  const [addExModalFromAI, setAddExModalFromAI] = useState(false);
+  const [editExOpen, setEditExOpen] = useState(false);
+  const [editExId, setEditExId] = useState('');
+  const [editExName, setEditExName] = useState('');
+  const [editExSets, setEditExSets] = useState(3);
+  const [editExReps, setEditExReps] = useState(10);
+  const [editExSaving, setEditExSaving] = useState(false);
+  const [deleteExOpen, setDeleteExOpen] = useState(false);
+  const [deleteExId, setDeleteExId] = useState('');
+  const [deleteExName, setDeleteExName] = useState('');
+  const [deleteExLoading, setDeleteExLoading] = useState(false);
 
   // Look up patient from API-loaded users list
   const patient = users.find(u => u.id === id);
@@ -94,20 +112,94 @@ export default function PatientDetailPage() {
   const statusStyle = profile ? STATUS_LABEL[profile.status] : null;
 
   const prescribedIds = new Set(prescription?.exercises.map(e => e.exerciseId) ?? []);
-  const availableExercises = MOCK_EXERCISES.filter(e => !prescribedIds.has(e.id));
+  const availableExercises = exercises.filter(e => !prescribedIds.has(e.id));
 
   const handleSelectExercise = (exId: string) => {
     setSelectedExId(exId);
-    const ex = MOCK_EXERCISES.find(e => e.id === exId);
+    const ex = exercises.find(e => e.id === exId);
     if (ex) { setAddReps(ex.defaultReps); setAddSets(ex.defaultSets); }
   };
 
-  const handleAddExercise = () => {
+  const handleApplyAIRec = (rec?: RecommendedExercise) => {
+    const adj = rec ?? recResult?.recommended_exercise;
+    if (!adj) return;
+    const matchedEx = exercises.find(
+      e => e.name === adj.exercise_name || adj.exercise_name.includes(e.name) || e.name.includes(adj.exercise_name),
+    );
+    if (matchedEx) {
+      setSelectedExId(matchedEx.id);
+      setAddSets(adj.recommended_sets ?? matchedEx.defaultSets);
+      setAddReps(adj.recommended_reps ?? matchedEx.defaultReps);
+    } else {
+      setSelectedExId('');
+      setAddSets(adj.recommended_sets ?? 3);
+      setAddReps(adj.recommended_reps ?? 10);
+    }
+    setAddExModalFromAI(true);
+    setShowRecModal(false);
+    setAddExModalOpen(true);
+  };
+
+  const handleAddExercise = async () => {
     if (!prescription || !selectedExId) return;
-    addExercisesToPrescription(prescription.id, [{ exerciseId: selectedExId, targetReps: addReps, targetSets: addSets }]);
+    await addExercisesToPrescription(prescription.id, [{ exerciseId: selectedExId, targetReps: addReps, targetSets: addSets }]);
     setAddExModalOpen(false);
+    setAddExModalFromAI(false);
     setSelectedExId('');
     showToast('운동이 처방에 추가됐습니다!');
+  };
+
+  const handleGetRecommendation = async () => {
+    if (!patient) return;
+    setRecError('');
+    setRecLoading(true);
+    setShowRecModal(true);
+    try {
+      const data = await apiFetchPrescriptionRecommend(patient.id);
+      setRecResult(data);
+    } catch (e) {
+      setRecError(e instanceof Error ? e.message : '오류가 발생했습니다.');
+    } finally {
+      setRecLoading(false);
+    }
+  };
+
+  const openEditEx = (exId: string, exName: string, sets: number, reps: number) => {
+    setEditExId(exId);
+    setEditExName(exName);
+    setEditExSets(sets);
+    setEditExReps(reps);
+    setEditExOpen(true);
+  };
+
+  const handleEditExSave = async () => {
+    if (!prescription) return;
+    setEditExSaving(true);
+    try {
+      await updatePrescribedExercise(prescription.id, editExId, { targetSets: editExSets, targetReps: editExReps });
+      showToast('처방이 수정됐습니다!');
+      setEditExOpen(false);
+    } finally {
+      setEditExSaving(false);
+    }
+  };
+
+  const openDeleteEx = (exId: string, exName: string) => {
+    setDeleteExId(exId);
+    setDeleteExName(exName);
+    setDeleteExOpen(true);
+  };
+
+  const handleDeleteExConfirm = async () => {
+    if (!prescription) return;
+    setDeleteExLoading(true);
+    try {
+      await removePrescribedExercise(prescription.id, deleteExId);
+      showToast(`${deleteExName} 운동이 삭제됐습니다.`);
+      setDeleteExOpen(false);
+    } finally {
+      setDeleteExLoading(false);
+    }
   };
 
   const handleSaveComment = async () => {
@@ -179,14 +271,27 @@ export default function PatientDetailPage() {
             </div>
           )}
         </div>
-        <Link href={`/therapist/chat/${patient.id}`}>
-          <Button variant="outline" size="sm">
+        <div className="flex flex-col gap-2">
+          <Button
+            size="sm"
+            onClick={handleGetRecommendation}
+            disabled={recLoading}
+            className="bg-violet-500 hover:bg-violet-600 text-white border-0 shadow-sm shadow-violet-200 whitespace-nowrap"
+          >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
             </svg>
-            채팅
+            AI 처방 추천
           </Button>
-        </Link>
+          <Link href={`/therapist/chat/${patient.id}`}>
+            <Button variant="outline" size="sm" className="w-full">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              채팅
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* 통계 */}
@@ -269,11 +374,37 @@ export default function PatientDetailPage() {
               </div>
               <div className="divide-y divide-slate-50">
                 {prescription.exercises.map(pe => {
-                  const exName = pe.exerciseName ?? MOCK_EXERCISES.find(e => e.id === pe.exerciseId)?.name;
+                  const exName = pe.exerciseName ?? MOCK_EXERCISES.find(e => e.id === pe.exerciseId)?.name ?? '알 수 없는 운동';
                   return (
-                    <div key={pe.exerciseId} className="flex items-center justify-between py-3">
+                    <div key={pe.exerciseId} className="flex items-center justify-between py-3 group">
                       <span className="text-sm font-medium text-slate-800">{exName}</span>
-                      <span className="text-xs text-slate-400 font-medium">{pe.targetSets}세트 × {pe.targetReps}회</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-400 font-medium tabular-nums">{pe.targetSets}세트 × {pe.targetReps}회</span>
+                        <button
+                          type="button"
+                          onClick={() => openEditEx(pe.exerciseId, exName, pe.targetSets, pe.targetReps)}
+                          className="p-1.5 rounded-lg text-slate-300 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                          title="편집"
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openDeleteEx(pe.exerciseId, exName)}
+                          className="p-1.5 rounded-lg text-slate-300 hover:text-red-600 hover:bg-red-50 transition-all"
+                          title="삭제"
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                            <path d="M10 11v6"/><path d="M14 11v6"/>
+                            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -350,11 +481,19 @@ export default function PatientDetailPage() {
       {/* 처방 추가 모달 */}
       <Modal
         isOpen={addExModalOpen}
-        onClose={() => setAddExModalOpen(false)}
-        title="운동 추가"
+        onClose={() => { setAddExModalOpen(false); setAddExModalFromAI(false); }}
+        title={addExModalFromAI ? 'AI 추천 처방 적용' : '운동 추가'}
         size="sm"
       >
         <div className="space-y-4">
+          {addExModalFromAI && (
+            <div className="flex items-center gap-2 bg-violet-50 border border-violet-100 rounded-xl px-3 py-2.5">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+              <p className="text-xs font-semibold text-violet-700">AI가 추천한 세트/횟수가 자동 입력됐습니다. 수정 후 저장하세요.</p>
+            </div>
+          )}
           <div>
             <label className="text-xs font-semibold text-slate-500 block mb-2">운동 선택</label>
             {availableExercises.length === 0 ? (
@@ -393,10 +532,199 @@ export default function PatientDetailPage() {
             </div>
           )}
           <div className="flex justify-end gap-2 pt-1">
-            <Button variant="ghost" size="sm" onClick={() => setAddExModalOpen(false)}>취소</Button>
-            <Button size="sm" onClick={handleAddExercise} disabled={!selectedExId}>추가하기</Button>
+            <Button variant="ghost" size="sm" onClick={() => { setAddExModalOpen(false); setAddExModalFromAI(false); }}>취소</Button>
+            <Button size="sm" onClick={handleAddExercise} disabled={!selectedExId}>
+              {addExModalFromAI ? 'AI 추천 처방 저장' : '추가하기'}
+            </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* 처방 운동 편집 모달 */}
+      <Modal isOpen={editExOpen} onClose={() => setEditExOpen(false)} title="처방 운동 편집" size="sm">
+        <div className="space-y-4">
+          <div className="bg-slate-50 rounded-xl px-4 py-3">
+            <p className="text-xs text-slate-400 mb-0.5">운동</p>
+            <p className="text-sm font-bold text-slate-800">{editExName}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-slate-500 block mb-2">세트 수</label>
+              <input
+                type="number" min={1} max={10} value={editExSets}
+                onChange={e => setEditExSets(Number(e.target.value))}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-500 block mb-2">반복 횟수</label>
+              <input
+                type="number" min={1} max={100} value={editExReps}
+                onChange={e => setEditExReps(Number(e.target.value))}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="ghost" size="sm" onClick={() => setEditExOpen(false)}>취소</Button>
+            <Button size="sm" onClick={handleEditExSave} disabled={editExSaving}>
+              {editExSaving ? '저장 중...' : '저장'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* 처방 운동 삭제 확인 모달 */}
+      <Modal isOpen={deleteExOpen} onClose={() => setDeleteExOpen(false)} title="운동 삭제" size="sm">
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 bg-red-50 border border-red-100 rounded-xl px-4 py-3.5">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <div>
+              <p className="text-sm font-semibold text-red-700"><span className="font-black">{deleteExName}</span>을(를) 처방에서 삭제하시겠습니까?</p>
+              <p className="text-xs text-red-500 mt-1">이 작업은 되돌릴 수 없습니다.</p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setDeleteExOpen(false)}>취소</Button>
+            <Button
+              size="sm"
+              onClick={handleDeleteExConfirm}
+              disabled={deleteExLoading}
+              className="bg-red-500 hover:bg-red-600 text-white border-0"
+            >
+              {deleteExLoading ? '삭제 중...' : '삭제'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* AI 처방 추천 Modal */}
+      <Modal
+        isOpen={showRecModal}
+        onClose={() => setShowRecModal(false)}
+        title="AI 처방 추천"
+        size="lg"
+      >
+        {recLoading && (
+          <div className="flex flex-col items-center gap-4 py-12">
+            <div className="w-12 h-12 border-4 border-violet-200 border-t-violet-500 rounded-full animate-spin" />
+            <div className="text-center">
+              <p className="text-sm font-bold text-violet-600">AI가 환자 데이터를 분석 중입니다...</p>
+              <p className="text-xs text-slate-400 mt-1">운동 기록, 통증 추이, 처방 현황을 종합하고 있어요</p>
+            </div>
+          </div>
+        )}
+
+        {!recLoading && recError && (
+          <div className="text-center py-8">
+            <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+            </div>
+            <p className="text-sm font-semibold text-red-600 mb-1">분석 실패</p>
+            <p className="text-xs text-slate-400">{recError}</p>
+            <Button size="sm" className="mt-4" onClick={handleGetRecommendation}>다시 시도</Button>
+          </div>
+        )}
+
+        {!recLoading && !recError && recResult && (() => {
+          const completionColor = stats.completionRate >= 70 ? 'text-emerald-600' : stats.completionRate >= 40 ? 'text-amber-600' : 'text-red-600';
+          const completionBg   = stats.completionRate >= 70 ? 'bg-emerald-50 border-emerald-100' : stats.completionRate >= 40 ? 'bg-amber-50 border-amber-100' : 'bg-red-50 border-red-100';
+          const painColor2 = stats.avgPainScore <= 3 ? 'text-emerald-600' : stats.avgPainScore <= 6 ? 'text-amber-600' : 'text-red-600';
+          const painBg    = stats.avgPainScore <= 3 ? 'bg-emerald-50 border-emerald-100' : stats.avgPainScore <= 6 ? 'bg-amber-50 border-amber-100' : 'bg-red-50 border-red-100';
+          const riskColor = stats.attentionLevel === 'normal' ? 'text-emerald-600' : stats.attentionLevel === 'warning' ? 'text-amber-600' : 'text-red-600';
+          const riskBg    = stats.attentionLevel === 'normal' ? 'bg-emerald-50 border-emerald-100' : stats.attentionLevel === 'warning' ? 'bg-amber-50 border-amber-100' : 'bg-red-50 border-red-100';
+          const rec = recResult.recommended_exercise;
+
+          return (
+            <div className="space-y-4">
+              {/* ① AI 추천 신규 처방 — 메인 히어로 카드 */}
+              {rec ? (
+                <div className="rounded-2xl overflow-hidden border border-violet-200 shadow-sm shadow-violet-100">
+                  <div className="bg-gradient-to-r from-violet-500 to-violet-600 px-5 py-3 flex items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                    <span className="text-sm font-bold text-white">AI 추천 신규 처방</span>
+                    <span className="ml-auto text-xs text-violet-200">현재 처방에 없는 운동</span>
+                  </div>
+                  <div className="bg-white px-5 py-4">
+                    <p className="text-xl font-black text-slate-900 mb-1">{rec.exercise_name}</p>
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className="text-sm font-bold text-violet-600 bg-violet-50 px-3 py-1 rounded-lg">
+                        {rec.recommended_sets ?? '—'}세트 × {rec.recommended_reps ?? '—'}회
+                      </span>
+                      <span className="text-xs text-slate-500">{rec.reason}</span>
+                    </div>
+                    <p className="text-xs text-slate-500 leading-relaxed mb-4">{rec.recommendation}</p>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyAIRec(rec)}
+                      className="w-full py-3 rounded-xl bg-violet-500 hover:bg-violet-600 active:bg-violet-700 text-white font-bold text-sm shadow-sm shadow-violet-200 transition-all flex items-center justify-center gap-2"
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                      AI 추천 처방 적용하기
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 px-5 py-4 text-center">
+                  <p className="text-sm text-slate-400">추천할 새 운동이 없습니다</p>
+                  <p className="text-xs text-slate-300 mt-1">이미 모든 운동이 처방되어 있거나 운동 데이터가 부족합니다.</p>
+                </div>
+              )}
+
+              {/* ② 상태 요약 숫자 카드 3개 */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className={`rounded-2xl border p-3 text-center ${completionBg}`}>
+                  <p className="text-xs text-slate-400 mb-1">수행률</p>
+                  <p className={`text-2xl font-black ${completionColor}`}>{stats.completionRate}<span className="text-sm font-semibold">%</span></p>
+                </div>
+                <div className={`rounded-2xl border p-3 text-center ${painBg}`}>
+                  <p className="text-xs text-slate-400 mb-1">평균 통증</p>
+                  <p className={`text-2xl font-black ${painColor2}`}>{stats.avgPainScore}<span className="text-sm font-semibold text-slate-400">/10</span></p>
+                </div>
+                <div className={`rounded-2xl border p-3 text-center ${riskBg}`}>
+                  <p className="text-xs text-slate-400 mb-1">위험도</p>
+                  <p className={`text-base font-black ${riskColor} leading-tight mt-1`}>{cfg.label}</p>
+                </div>
+              </div>
+
+              {/* ③ 주의 신호 */}
+              {recResult.risk_signals.length > 0 && (
+                <div className="bg-red-50 border border-red-100 rounded-2xl px-4 py-3">
+                  <p className="text-xs font-bold text-red-700 mb-2">⚠ 주의 신호</p>
+                  <ul className="space-y-1">
+                    {recResult.risk_signals.slice(0, 3).map((s, i) => (
+                      <li key={i} className="flex items-start gap-2 text-xs text-red-600">
+                        <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />{s}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* ④ 처방 방향 + 종합 의견 */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-blue-50 border border-blue-100 rounded-2xl px-4 py-3">
+                  <p className="text-xs font-bold text-blue-700 mb-1">처방 방향</p>
+                  <p className="text-xs text-blue-600 leading-relaxed line-clamp-3">{recResult.prescription_direction}</p>
+                </div>
+                <div className="bg-emerald-50 border border-emerald-100 rounded-2xl px-4 py-3">
+                  <p className="text-xs font-bold text-emerald-700 mb-1">종합 의견</p>
+                  <p className="text-xs text-emerald-700 leading-relaxed line-clamp-3">{recResult.overall_recommendation}</p>
+                </div>
+              </div>
+
+              <p className="text-center text-xs text-slate-300">AI 분석 결과는 참고용이며, 최종 처방은 치료사의 임상적 판단을 따르세요.</p>
+            </div>
+          );
+        })()}
       </Modal>
 
       {/* 기록 */}

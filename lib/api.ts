@@ -1,4 +1,4 @@
-import { User, ExerciseLog, Prescription, Difficulty } from '@/lib/types';
+import { User, ExerciseLog, Prescription, Difficulty, Exercise, BodyPart } from '@/lib/types';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
@@ -225,7 +225,42 @@ export async function apiCreateLog(log: Omit<ExerciseLog, 'id'>): Promise<Exerci
   return mapLog(raw);
 }
 
+// --- Exercises ---
+
+function mapExercise(e: RawExercise): Exercise {
+  return {
+    id: e.id,
+    name: e.name,
+    bodyPart: e.body_part as BodyPart,
+    description: e.description ?? '',
+    defaultReps: e.default_reps,
+    defaultSets: e.default_sets,
+  };
+}
+
+export async function apiFetchExercises(): Promise<Exercise[]> {
+  const data = await request<RawExercise[]>('/exercises/');
+  return data.map(mapExercise);
+}
+
 // --- Prescriptions ---
+
+export async function apiAddExercisesToPrescription(
+  prescriptionId: string,
+  exercises: Array<{ exerciseId: string; targetReps: number; targetSets: number }>,
+): Promise<Prescription> {
+  const raw = await request<RawPrescription>(`/prescriptions/${prescriptionId}/exercises`, {
+    method: 'POST',
+    body: JSON.stringify({
+      exercises: exercises.map(e => ({
+        exercise_id: e.exerciseId,
+        target_reps: e.targetReps,
+        target_sets: e.targetSets,
+      })),
+    }),
+  });
+  return mapPrescription(raw);
+}
 
 // Patient: own prescription
 export async function apiFetchMyPrescription(): Promise<Prescription | undefined> {
@@ -250,8 +285,54 @@ export async function apiFetchPatientPrescription(patientId: string): Promise<Pr
 // --- AI Summary ---
 
 export async function apiFetchAISummary(patientId: string): Promise<string> {
-  const data = await request<{ summary: string }>(`/ai/summary?patient_id=${patientId}`);
+  const data = await request<{ summary: string }>(`/ai/summary/${patientId}`);
   return data.summary;
+}
+
+export interface RecommendedExercise {
+  exercise_name: string;
+  recommendation: string;
+  reason: string;
+  recommended_sets?: number;
+  recommended_reps?: number;
+}
+
+export interface PrescriptionRecommendResult {
+  patient_id: string;
+  status_summary: string;
+  risk_signals: string[];
+  prescription_direction: string;
+  recommended_exercise: RecommendedExercise | null;
+  overall_recommendation: string;
+}
+
+export async function apiFetchPrescriptionRecommend(patientId: string): Promise<PrescriptionRecommendResult> {
+  return request<PrescriptionRecommendResult>(`/ai/prescription-recommend/${patientId}`);
+}
+
+export async function apiUpdatePrescribedExercise(
+  prescriptionId: string,
+  exerciseId: string,
+  updates: { targetReps?: number; targetSets?: number },
+): Promise<Prescription> {
+  const raw = await request<RawPrescription>(`/prescriptions/${prescriptionId}/exercises/${exerciseId}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      target_reps: updates.targetReps,
+      target_sets: updates.targetSets,
+    }),
+  });
+  return mapPrescription(raw);
+}
+
+export async function apiRemovePrescribedExercise(
+  prescriptionId: string,
+  exerciseId: string,
+): Promise<Prescription> {
+  const raw = await request<RawPrescription>(`/prescriptions/${prescriptionId}/exercises/${exerciseId}`, {
+    method: 'DELETE',
+  });
+  return mapPrescription(raw);
 }
 
 // --- Messages ---

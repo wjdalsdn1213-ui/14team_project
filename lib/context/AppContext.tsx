@@ -3,13 +3,15 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import {
   User, ExerciseLog, Prescription, Message, PatientProfile,
-  TherapistComment, PrescribedExercise,
+  TherapistComment, PrescribedExercise, Exercise,
 } from '@/lib/types';
 import { MOCK_PROFILES, MOCK_COMMENTS } from '@/lib/mock-data/profiles';
 import {
   apiLogin, apiFetchPatients, apiCreateLog,
   apiFetchMyLogs, apiFetchPatientLogs,
   apiFetchMyPrescription, apiFetchPatientPrescription,
+  apiAddExercisesToPrescription, apiFetchExercises,
+  apiUpdatePrescribedExercise, apiRemovePrescribedExercise,
   apiFetchAISummary, apiFetchUser,
   saveToken, saveUser, loadSavedUser, clearSession,
 } from '@/lib/api';
@@ -17,6 +19,7 @@ import {
 interface AppContextType {
   currentUser: User | null;
   users: User[];
+  exercises: Exercise[];
   logs: ExerciseLog[];
   prescriptions: Prescription[];
   messages: Message[];
@@ -27,7 +30,9 @@ interface AppContextType {
   logout: () => void;
   addLog: (log: ExerciseLog) => Promise<void>;
   addPrescription: (presc: Prescription) => void;
-  addExercisesToPrescription: (prescriptionId: string, exercises: PrescribedExercise[]) => void;
+  addExercisesToPrescription: (prescriptionId: string, exercises: PrescribedExercise[]) => Promise<void>;
+  updatePrescribedExercise: (prescriptionId: string, exerciseId: string, updates: { targetReps?: number; targetSets?: number }) => Promise<void>;
+  removePrescribedExercise: (prescriptionId: string, exerciseId: string) => Promise<void>;
   sendMessage: (msg: Message) => void;
   addComment: (comment: TherapistComment) => void;
   getPatientLogs: (patientId: string) => ExerciseLog[];
@@ -44,9 +49,14 @@ const AppContext = createContext<AppContextType | null>(null);
 async function loadDataForUser(
   user: User,
   setUsers: React.Dispatch<React.SetStateAction<User[]>>,
+  setExercises: React.Dispatch<React.SetStateAction<Exercise[]>>,
   setLogs: React.Dispatch<React.SetStateAction<ExerciseLog[]>>,
   setPrescriptions: React.Dispatch<React.SetStateAction<Prescription[]>>,
 ): Promise<void> {
+  // Always load the exercise catalogue
+  const exercisesData = await apiFetchExercises().catch(() => []);
+  setExercises(exercisesData);
+
   if (user.role === 'patient') {
     const [logs, presc] = await Promise.all([
       apiFetchMyLogs(),
@@ -76,6 +86,7 @@ async function loadDataForUser(
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
+  const [exercises, setExercises] = useState<Exercise[]>([]);
   const [logs, setLogs] = useState<ExerciseLog[]>([]);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -88,7 +99,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!savedUser) return;
     setCurrentUser(savedUser);
     setLoading(true);
-    loadDataForUser(savedUser, setUsers, setLogs, setPrescriptions)
+    loadDataForUser(savedUser, setUsers, setExercises, setLogs, setPrescriptions)
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -100,7 +111,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       saveUser(user);
       setCurrentUser(user);
       setLoading(true);
-      await loadDataForUser(user, setUsers, setLogs, setPrescriptions);
+      await loadDataForUser(user, setUsers, setExercises, setLogs, setPrescriptions);
       return user;
     } catch {
       return null;
@@ -113,6 +124,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     clearSession();
     setCurrentUser(null);
     setUsers([]);
+    setExercises([]);
     setLogs([]);
     setPrescriptions([]);
   }, []);
@@ -132,13 +144,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setPrescriptions(prev => [...prev, presc]);
   }, []);
 
-  const addExercisesToPrescription = useCallback((prescriptionId: string, exercises: PrescribedExercise[]) => {
-    setPrescriptions(prev => prev.map(p => {
-      if (p.id !== prescriptionId) return p;
-      const existing = new Set(p.exercises.map(e => e.exerciseId));
-      const toAdd = exercises.filter(e => !existing.has(e.exerciseId));
-      return { ...p, exercises: [...p.exercises, ...toAdd] };
-    }));
+  const addExercisesToPrescription = useCallback(async (prescriptionId: string, exercises: PrescribedExercise[]) => {
+    try {
+      const updated = await apiAddExercisesToPrescription(prescriptionId, exercises);
+      setPrescriptions(prev => prev.map(p => p.id === prescriptionId ? updated : p));
+    } catch {
+      // Optimistic fallback: update local state if API fails
+      setPrescriptions(prev => prev.map(p => {
+        if (p.id !== prescriptionId) return p;
+        const existing = new Set(p.exercises.map(e => e.exerciseId));
+        const toAdd = exercises.filter(e => !existing.has(e.exerciseId));
+        return { ...p, exercises: [...p.exercises, ...toAdd] };
+      }));
+    }
+  }, []);
+
+  const updatePrescribedExercise = useCallback(async (prescriptionId: string, exerciseId: string, updates: { targetReps?: number; targetSets?: number }) => {
+    const updated = await apiUpdatePrescribedExercise(prescriptionId, exerciseId, updates);
+    setPrescriptions(prev => prev.map(p => p.id === prescriptionId ? updated : p));
+  }, []);
+
+  const removePrescribedExercise = useCallback(async (prescriptionId: string, exerciseId: string) => {
+    const updated = await apiRemovePrescribedExercise(prescriptionId, exerciseId);
+    setPrescriptions(prev => prev.map(p => p.id === prescriptionId ? updated : p));
   }, []);
 
   const sendMessage = useCallback((msg: Message) => {
@@ -188,6 +216,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     <AppContext.Provider value={{
       currentUser,
       users,
+      exercises,
       logs,
       prescriptions,
       messages,
@@ -199,6 +228,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addLog,
       addPrescription,
       addExercisesToPrescription,
+      updatePrescribedExercise,
+      removePrescribedExercise,
       sendMessage,
       addComment,
       getPatientLogs,

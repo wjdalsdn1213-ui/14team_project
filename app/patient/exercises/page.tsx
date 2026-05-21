@@ -9,6 +9,7 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
 import EmptyState from '@/components/ui/EmptyState';
+import VoiceLogRecorder from '@/components/VoiceLogRecorder';
 import Link from 'next/link';
 
 const DIFFICULTY_OPTIONS: { value: Difficulty; label: string; active: string }[] = [
@@ -110,6 +111,24 @@ export default function ExercisesPage() {
           />
         </Card>
       ) : (
+        <>
+          <VoiceLogRecorder
+            prescribedExercises={availableExercises.map(e => ({ id: e.id, name: e.name }))}
+            onConfirm={async (exerciseId, sets, reps, painScore, diff) => {
+              const log: ExerciseLog = {
+                id: '',
+                patientId: currentUser.id,
+                exerciseId,
+                date: new Date().toISOString().split('T')[0],
+                actualReps: reps,
+                actualSets: sets,
+                painScore,
+                difficulty: diff,
+              };
+              await addLog(log);
+              showToast('음성 운동 기록이 저장됐습니다!');
+            }}
+          />
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* 운동 선택 */}
           <Card className="overflow-hidden">
@@ -242,6 +261,7 @@ export default function ExercisesPage() {
             </Link>
           </div>
         </form>
+        </>
       )}
     </div>
   );
