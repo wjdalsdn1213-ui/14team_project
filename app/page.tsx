@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useApp } from '@/lib/context/AppContext';
 import Button from '@/components/ui/Button';
+import Link from 'next/link';
 
 export default function LoginPage() {
   const { login, isLoading } = useApp();
@@ -23,6 +24,13 @@ export default function LoginPage() {
     if (user.role === 'therapist') router.push('/therapist/dashboard');
     else router.push('/patient/dashboard');
   };
+  // LoginPage 코드의 버튼 하단에 추가
+  <div className="mt-4 text-center text-sm text-slate-500">
+    계정이 없으신가요?{' '}
+    <Link href="/signup" className="text-blue-600 font-semibold hover:underline">
+      회원가입하기
+    </Link>
+  </div>
 
   const fillPatient = () => { setEmail('seoyeon@email.com'); setPassword('1234'); setError(''); };
   const fillTherapist = () => { setEmail('minjun@rehab.com'); setPassword('1234'); setError(''); };
@@ -111,15 +119,22 @@ export default function LoginPage() {
               </div>
             )}
 
-            <Button 
-              type="submit" 
-              size="lg" 
+            <Button
+              type="submit"
+              size="lg"
               className="w-full mt-2"
-              disabled={isLoading} 
+              disabled={isLoading}
             >
               {isLoading ? '로그인 중...' : '로그인'}
             </Button>
           </form>
+          {/* 이 부분을 추가하세요 */}
+          <div className="mt-6 mb-8 text-center text-sm text-slate-500">
+            계정이 없으신가요?{' '}
+            <a href="/signup" className="text-blue-600 font-semibold hover:underline">
+              회원가입하기
+            </a>
+          </div>
 
           <div className="mt-8">
             <div className="flex items-center gap-3 mb-4">
