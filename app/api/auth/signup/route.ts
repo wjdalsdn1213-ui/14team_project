@@ -1,52 +1,80 @@
-import { signUpSchema } from '@/lib/validations/auth';
-// 파일 최상단 import 문을 이렇게 바꿔보세요
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { fail, ok } from "@/lib/api/response";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { signUpSchema } from "@/lib/validations/auth";
+
+function getInitials(name: string) {
+  const trimmed = name.trim();
+  return Array.from(trimmed).slice(0, 2).join("").toUpperCase();
+}
 
 export async function POST(request: Request) {
+  try {
     const body = await request.json();
+    const parsed = signUpSchema.safeParse(body);
 
-    // 1. Zod로 검증 (여기서 email, password, role 변수가 생성됨)
-    const result = signUpSchema.safeParse(body);
-    if (!result.success) {
-        return NextResponse.json({ error: '유효하지 않은 입력값입니다.' }, { status: 400 });
+    if (!parsed.success) {
+      return fail("Invalid request body", 400, parsed.error.flatten());
     }
 
-    const { email, password, role } = result.data;
-    const cookieStore = cookies();
+    const { name, email, password, role } = parsed.data;
+    const admin = createSupabaseAdminClient();
 
-    // 2. Supabase 클라이언트 생성
-    const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-            // cookies 부분 전체를 아래 코드로 교체하세요
-            cookies: {
-                getAll() {
-                    return cookieStore.getAll();
-                },
-                setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
-                    cookiesToSet.forEach(({ name, value, options }) =>
-                        cookieStore.set(name, value, options)
-                    );
-                },
-            },
-        }
-    );
-
-    // 3. 변수(email, password, role)를 사용하는 Supabase 로직 추가!
-    const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-            data: { role }, // 여기서 role 변수를 사용하게 되므로 에러가 사라집니다.
-        },
+    const { data, error } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { name, role },
     });
 
     if (error) {
-        return NextResponse.json({ error: error.message }, { status: 400 });
+      return fail(error.message, 400);
     }
 
-    return NextResponse.json({ data });
+    if (!data.user) {
+      return fail("Failed to create auth user", 500);
+    }
+
+    const { error: profileError } = await admin.from("profiles").insert({
+      id: data.user.id,
+      role,
+      name,
+      email,
+      avatar_initials: getInitials(name),
+      therapist_id: null,
+    });
+
+    if (profileError) {
+      await admin.auth.admin.deleteUser(data.user.id);
+      return fail(profileError.message, 400);
+    }
+
+    if (role === "patient") {
+      const today = new Date().toISOString().slice(0, 10);
+      const { error: patientProfileError } = await admin.from("patient_profiles").insert({
+        patient_id: data.user.id,
+        diagnosis: "등록 대기",
+        injury_date: today,
+        surgery_date: null,
+        rehab_status: "maintenance",
+        status_label: "신규 등록",
+      });
+
+      if (patientProfileError) {
+        await admin.auth.admin.deleteUser(data.user.id);
+        return fail(patientProfileError.message, 400);
+      }
+    }
+
+    return ok({
+      success: true,
+      user: {
+        id: data.user.id,
+        email,
+        name,
+        role,
+      },
+    }, 201);
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : "Signup failed", 500);
+  }
 }
