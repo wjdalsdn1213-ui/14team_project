@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useApp } from '@/lib/context/AppContext';
 import { useToast } from '@/lib/context/ToastContext';
@@ -20,6 +20,7 @@ import CompletionChart from '@/components/charts/CompletionChart';
 import DonutChart from '@/components/charts/DonutChart';
 import EmptyState from '@/components/ui/EmptyState';
 import Link from 'next/link';
+import VoiceTherapistComment from '@/components/therapist/VoiceTherapistComment';
 
 type Tab = 'overview' | 'calendar' | 'records' | 'comments';
 
@@ -38,7 +39,7 @@ const ATTENTION_CONFIG = {
 
 export default function PatientDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { getPatientLogs, getPatientPrescription, getPatientProfile, getPatientComments, addComment, currentUser, users } = useApp();
+  const { getPatientLogs, getPatientPrescription, getPatientProfile, getPatientComments, addComment, currentUser, users, getTherapistPatients } = useApp();
   const { showToast } = useToast();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('overview');
@@ -46,6 +47,13 @@ export default function PatientDetailPage() {
   const [savingComment, setSavingComment] = useState(false);
   const [calPopupDate, setCalPopupDate] = useState<string | null>(null);
   const [calPopupLogs, setCalPopupLogs] = useState<ReturnType<typeof getPatientLogs>>([]);
+
+  useEffect(() => {
+    const targetTab = new URLSearchParams(window.location.search).get('tab');
+    if (targetTab === 'overview' || targetTab === 'calendar' || targetTab === 'records' || targetTab === 'comments') {
+      setTab(targetTab);
+    }
+  }, []);
 
   const patient = users.find(u => u.id === id);
   if (!patient) return <div className="p-8 text-slate-400">환자를 찾을 수 없습니다.</div>;
@@ -335,6 +343,14 @@ export default function PatientDetailPage() {
       {/* 코멘트 */}
       {tab === 'comments' && (
         <div className="space-y-4">
+          {currentUser && (
+            <VoiceTherapistComment
+              therapistId={currentUser.id}
+              patients={getTherapistPatients(currentUser.id)}
+              preselectedPatientId={patient.id}
+            />
+          )}
+
           {/* 작성 영역 */}
           <Card className="p-5">
             <h2 className="font-bold text-slate-900 mb-3">코멘트 작성</h2>

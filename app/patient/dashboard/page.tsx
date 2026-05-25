@@ -9,6 +9,8 @@ import DonutChart from '@/components/charts/DonutChart';
 import PainTrendChart from '@/components/charts/PainTrendChart';
 import EmptyState from '@/components/ui/EmptyState';
 import Link from 'next/link';
+import VoiceExerciseLogger from '@/components/patient/VoiceExerciseLogger';
+import { APP_TODAY } from '@/lib/constants/date';
 
 export default function PatientDashboard() {
   const { currentUser, getPatientLogs, getPatientPrescription } = useApp();
@@ -18,7 +20,7 @@ export default function PatientDashboard() {
   const prescription = getPatientPrescription(currentUser.id);
   const stats = getPatientStats(logs, prescription);
 
-  const todayStr = '2026-05-07';
+  const todayStr = APP_TODAY;
   const todayLogs = logs.filter(l => l.date === todayStr);
   const todayExercises = prescription?.exercises ?? [];
   const completedIds = new Set(todayLogs.map(l => l.exerciseId));
@@ -78,6 +80,8 @@ export default function PatientDashboard() {
           <p className="text-xs text-slate-400 mt-1">{stats.streak > 0 ? `${stats.streak}일 연속 중` : '오늘 시작해봐요'}</p>
         </Card>
       </div>
+
+      <VoiceExerciseLogger patientId={currentUser.id} />
 
       {/* 오늘의 운동 */}
       <Card className="mb-6">

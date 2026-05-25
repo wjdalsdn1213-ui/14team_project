@@ -5,6 +5,7 @@ import { getPatientStats } from '@/lib/utils/stats';
 import Card from '@/components/ui/Card';
 import ProgressBar from '@/components/ui/ProgressBar';
 import Link from 'next/link';
+import VoiceTherapistComment from '@/components/therapist/VoiceTherapistComment';
 
 const ATTENTION_CONFIG = {
   critical: { label: '즉시 확인', labelStyle: 'text-red-500',   border: 'border-l-[3px] border-l-red-400' },
@@ -37,6 +38,8 @@ export default function TherapistDashboard() {
         <h1 className="text-3xl font-bold text-slate-900">환자 현황</h1>
         <p className="text-slate-500 mt-1">담당 환자 {patients.length}명의 재활 현황을 확인하세요.</p>
       </div>
+
+      <VoiceTherapistComment therapistId={currentUser.id} patients={patients} />
 
       {/* 요약 카드 — 모노톤 */}
       <div className="grid grid-cols-3 gap-4 mb-8">
