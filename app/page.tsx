@@ -27,10 +27,15 @@ export default function LoginPage() {
     router.push(user.role === 'therapist' ? '/therapist/dashboard' : '/patient/dashboard');
   };
 
-  const handleQuickLogin = async (email: string, password: string) => {
+  const handleQuickLogin = async (em: string, pw: string) => {
     setError('');
     setSubmitting(true);
-    const user = await login(email, password);
+    let user = null;
+    for (let i = 0; i < 3; i++) {
+      user = await login(em, pw);
+      if (user) break;
+      if (i < 2) await new Promise(r => setTimeout(r, 700));
+    }
     setSubmitting(false);
     if (!user) {
       setError('로그인에 실패했습니다. 잠시 후 다시 시도해주세요.');
@@ -39,8 +44,21 @@ export default function LoginPage() {
     router.push(user.role === 'therapist' ? '/therapist/dashboard' : '/patient/dashboard');
   };
 
-  const fillPatient = () => handleQuickLogin('lee.seoyeon@email.com', 'rehab1234');
-  const fillTherapist = () => handleQuickLogin('kimjisu@rehab.com', 'rehab1234');
+  const fillPatient = () => {
+    const em = 'lee.seoyeon@email.com';
+    const pw = 'rehab1234';
+    setEmail(em);
+    setPassword(pw);
+    handleQuickLogin(em, pw);
+  };
+
+  const fillTherapist = () => {
+    const em = 'kimjisu@rehab.com';
+    const pw = 'rehab1234';
+    setEmail(em);
+    setPassword(pw);
+    handleQuickLogin(em, pw);
+  };
 
   return (
     <div className="min-h-screen flex">
