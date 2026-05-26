@@ -1,4 +1,5 @@
 import { fail, ok } from "@/lib/api/response";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { signUpSchema } from "@/lib/validations/auth";
 
@@ -23,6 +24,7 @@ export async function POST(request: Request) {
     }
 
     const supabase = createSupabaseServerClient();
+    const adminSupabase = createSupabaseAdminClient();
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -39,7 +41,7 @@ export async function POST(request: Request) {
       return fail("Failed to create auth user", 500);
     }
 
-    const { error: profileError } = await supabase.from("profiles").insert({
+    const { error: profileError } = await adminSupabase.from("profiles").insert({
       id: data.user.id,
       role,
       name,
@@ -53,7 +55,7 @@ export async function POST(request: Request) {
     }
 
     const today = new Date().toISOString().slice(0, 10);
-    const { error: patientProfileError } = await supabase.from("patient_profiles").insert({
+    const { error: patientProfileError } = await adminSupabase.from("patient_profiles").insert({
       patient_id: data.user.id,
       diagnosis: "Pending intake",
       injury_date: today,
