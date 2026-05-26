@@ -1,5 +1,5 @@
 import { fail, ok } from "@/lib/api/response";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { signUpSchema } from "@/lib/validations/auth";
 
 function getInitials(name: string) {
@@ -17,13 +17,18 @@ export async function POST(request: Request) {
     }
 
     const { name, email, password, role } = parsed.data;
-    const admin = createSupabaseAdminClient();
 
-    const { data, error } = await admin.auth.admin.createUser({
+    if (role !== "patient") {
+      return fail("Therapist signup is not available on the public endpoint", 403);
+    }
+
+    const supabase = createSupabaseServerClient();
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      email_confirm: true,
-      user_metadata: { name, role },
+      options: {
+        data: { name, role },
+      },
     });
 
     if (error) {
@@ -34,7 +39,7 @@ export async function POST(request: Request) {
       return fail("Failed to create auth user", 500);
     }
 
-    const { error: profileError } = await admin.from("profiles").insert({
+    const { error: profileError } = await supabase.from("profiles").insert({
       id: data.user.id,
       role,
       name,
@@ -44,36 +49,35 @@ export async function POST(request: Request) {
     });
 
     if (profileError) {
-      await admin.auth.admin.deleteUser(data.user.id);
       return fail(profileError.message, 400);
     }
 
-    if (role === "patient") {
-      const today = new Date().toISOString().slice(0, 10);
-      const { error: patientProfileError } = await admin.from("patient_profiles").insert({
-        patient_id: data.user.id,
-        diagnosis: "등록 대기",
-        injury_date: today,
-        surgery_date: null,
-        rehab_status: "maintenance",
-        status_label: "신규 등록",
-      });
+    const today = new Date().toISOString().slice(0, 10);
+    const { error: patientProfileError } = await supabase.from("patient_profiles").insert({
+      patient_id: data.user.id,
+      diagnosis: "Pending intake",
+      injury_date: today,
+      surgery_date: null,
+      rehab_status: "maintenance",
+      status_label: "New signup",
+    });
 
-      if (patientProfileError) {
-        await admin.auth.admin.deleteUser(data.user.id);
-        return fail(patientProfileError.message, 400);
-      }
+    if (patientProfileError) {
+      return fail(patientProfileError.message, 400);
     }
 
-    return ok({
-      success: true,
-      user: {
-        id: data.user.id,
-        email,
-        name,
-        role,
+    return ok(
+      {
+        success: true,
+        user: {
+          id: data.user.id,
+          email,
+          name,
+          role,
+        },
       },
-    }, 201);
+      201,
+    );
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Signup failed", 500);
   }

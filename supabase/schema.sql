@@ -148,6 +148,17 @@ for select
 to authenticated
 using (auth.uid() = id);
 
+create policy "profiles self insert"
+on public.profiles
+for insert
+to authenticated
+with check (
+  auth.uid() = id
+  and role = 'patient'
+  and therapist_id is null
+  and email = auth.email()
+);
+
 create policy "profiles therapist can read assigned patients"
 on public.profiles
 for select
@@ -171,6 +182,12 @@ using (
       and p.therapist_id = auth.uid()
   )
 );
+
+create policy "patient profiles self insert"
+on public.patient_profiles
+for insert
+to authenticated
+with check (patient_id = auth.uid());
 
 create policy "exercises authenticated read"
 on public.exercises
