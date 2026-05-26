@@ -41,28 +41,34 @@ export async function POST(request: Request) {
       return fail("Failed to create auth user", 500);
     }
 
-    const { error: profileError } = await adminSupabase.from("profiles").insert({
-      id: data.user.id,
-      role,
-      name,
-      email,
-      avatar_initials: getInitials(name),
-      therapist_id: null,
-    });
+    const { error: profileError } = await adminSupabase.from("profiles").upsert(
+      {
+        id: data.user.id,
+        role,
+        name,
+        email,
+        avatar_initials: getInitials(name),
+        therapist_id: null,
+      },
+      { onConflict: "id" },
+    );
 
     if (profileError) {
       return fail(profileError.message, 400);
     }
 
     const today = new Date().toISOString().slice(0, 10);
-    const { error: patientProfileError } = await adminSupabase.from("patient_profiles").insert({
-      patient_id: data.user.id,
-      diagnosis: "Pending intake",
-      injury_date: today,
-      surgery_date: null,
-      rehab_status: "maintenance",
-      status_label: "New signup",
-    });
+    const { error: patientProfileError } = await adminSupabase.from("patient_profiles").upsert(
+      {
+        patient_id: data.user.id,
+        diagnosis: "Pending intake",
+        injury_date: today,
+        surgery_date: null,
+        rehab_status: "maintenance",
+        status_label: "New signup",
+      },
+      { onConflict: "patient_id" },
+    );
 
     if (patientProfileError) {
       return fail(patientProfileError.message, 400);
