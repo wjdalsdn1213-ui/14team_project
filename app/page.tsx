@@ -4,40 +4,64 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useApp } from '@/lib/context/AppContext';
 import Button from '@/components/ui/Button';
-import Link from 'next/link';
+import Spinner from '@/components/ui/Spinner';
 
 export default function LoginPage() {
-  const { login, isLoading } = useApp();
+  const { login } = useApp();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSubmitting(true);
     const user = await login(email, password);
+    setSubmitting(false);
     if (!user) {
       setError('이메일 또는 비밀번호가 올바르지 않습니다.');
       return;
     }
-    if (user.role === 'therapist') router.push('/therapist/dashboard');
-    else router.push('/patient/dashboard');
+    router.push(user.role === 'therapist' ? '/therapist/dashboard' : '/patient/dashboard');
   };
-  // LoginPage 코드의 버튼 하단에 추가
-  <div className="mt-4 text-center text-sm text-slate-500">
-    계정이 없으신가요?{' '}
-    <Link href="/signup" className="text-blue-600 font-semibold hover:underline">
-      회원가입하기
-    </Link>
-  </div>
 
-  const fillPatient = () => { setEmail('seoyeon@email.com'); setPassword('1234'); setError(''); };
-  const fillTherapist = () => { setEmail('minjun@rehab.com'); setPassword('1234'); setError(''); };
+  const handleQuickLogin = async (em: string, pw: string) => {
+    setError('');
+    setSubmitting(true);
+    let user = null;
+    for (let i = 0; i < 3; i++) {
+      user = await login(em, pw);
+      if (user) break;
+      if (i < 2) await new Promise(r => setTimeout(r, 700));
+    }
+    setSubmitting(false);
+    if (!user) {
+      setError('로그인에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+    router.push(user.role === 'therapist' ? '/therapist/dashboard' : '/patient/dashboard');
+  };
+
+  const fillPatient = () => {
+    const em = 'lee.seoyeon@email.com';
+    const pw = 'rehab1234';
+    setEmail(em);
+    setPassword(pw);
+    handleQuickLogin(em, pw);
+  };
+
+  const fillTherapist = () => {
+    const em = 'kimjisu@rehab.com';
+    const pw = 'rehab1234';
+    setEmail(em);
+    setPassword(pw);
+    handleQuickLogin(em, pw);
+  };
 
   return (
     <div className="min-h-screen flex">
-      {/* 왼쪽 브랜드 패널 */}
       <div className="hidden lg:flex flex-col justify-between w-[420px] bg-slate-900 p-12 flex-shrink-0">
         <div>
           <div className="flex items-center gap-2.5 mb-16">
@@ -73,7 +97,6 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* 오른쪽 로그인 폼 */}
       <div className="flex-1 flex items-center justify-center p-8 bg-slate-50">
         <div className="w-full max-w-sm">
           <div className="mb-10">
@@ -99,6 +122,7 @@ export default function LoginPage() {
                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="이메일을 입력하세요"
                 required
+                disabled={submitting}
               />
             </div>
             <div>
@@ -110,6 +134,7 @@ export default function LoginPage() {
                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="비밀번호를 입력하세요"
                 required
+                disabled={submitting}
               />
             </div>
 
@@ -119,22 +144,11 @@ export default function LoginPage() {
               </div>
             )}
 
-            <Button
-              type="submit"
-              size="lg"
-              className="w-full mt-2"
-              disabled={isLoading}
-            >
-              {isLoading ? '로그인 중...' : '로그인'}
+            <Button type="submit" size="lg" className="w-full mt-2" disabled={submitting}>
+              {submitting ? <Spinner /> : null}
+              {submitting ? '로그인 중...' : '로그인'}
             </Button>
           </form>
-          {/* 이 부분을 추가하세요 */}
-          <div className="mt-6 mb-8 text-center text-sm text-slate-500">
-            계정이 없으신가요?{' '}
-            <a href="/signup" className="text-blue-600 font-semibold hover:underline">
-              회원가입하기
-            </a>
-          </div>
 
           <div className="mt-8">
             <div className="flex items-center gap-3 mb-4">
@@ -146,7 +160,8 @@ export default function LoginPage() {
               <button
                 onClick={fillPatient}
                 type="button"
-                className="flex flex-col items-center gap-1.5 p-4 rounded-2xl bg-white border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all card-shadow"
+                disabled={submitting}
+                className="flex flex-col items-center gap-1.5 p-4 rounded-2xl bg-white border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all card-shadow disabled:opacity-50"
               >
                 <span className="text-2xl">🧑‍🦽</span>
                 <span className="text-xs font-semibold text-slate-700">환자로 입장</span>
@@ -155,7 +170,8 @@ export default function LoginPage() {
               <button
                 onClick={fillTherapist}
                 type="button"
-                className="flex flex-col items-center gap-1.5 p-4 rounded-2xl bg-white border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all card-shadow"
+                disabled={submitting}
+                className="flex flex-col items-center gap-1.5 p-4 rounded-2xl bg-white border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all card-shadow disabled:opacity-50"
               >
                 <span className="text-2xl">👨‍⚕️</span>
                 <span className="text-xs font-semibold text-slate-700">치료사로 입장</span>

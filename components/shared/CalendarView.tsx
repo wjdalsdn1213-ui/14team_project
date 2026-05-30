@@ -11,7 +11,7 @@ interface CalendarViewProps {
 }
 
 export default function CalendarView({ logs, onSelectDate, hideDetail = false }: CalendarViewProps) {
-  const today = new Date('2026-05-07');
+  const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -67,7 +67,7 @@ export default function CalendarView({ logs, onSelectDate, hideDetail = false }:
           const dateStr = getDateStr(day);
           const dayLogs = getLogsForDate(day);
           const hasLogs = dayLogs.length > 0;
-          const isToday = dateStr === '2026-05-07';
+          const isToday = dateStr === today.toISOString().split('T')[0];
           const isSelected = dateStr === selectedDate;
           const avgPain = hasLogs ? dayLogs.reduce((s, l) => s + l.painScore, 0) / dayLogs.length : 0;
           const dotColor = avgPain <= 3 ? 'bg-emerald-400' : avgPain <= 6 ? 'bg-amber-400' : 'bg-red-400';

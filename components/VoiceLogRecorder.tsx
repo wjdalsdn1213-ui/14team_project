@@ -3,7 +3,48 @@
 import { useState, useRef } from 'react';
 import { Difficulty } from '@/lib/types';
 
-type SpeechRecognitionInstance = InstanceType<NonNullable<Window['SpeechRecognition']>>;
+interface SpeechRecognitionInstance extends EventTarget {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onresult: ((event: SpeechRecognitionResultEvent) => void) | null;
+  onerror: ((event: SpeechRecognitionErrEvent) => void) | null;
+  onend: (() => void) | null;
+}
+
+interface SpeechRecognitionResultEvent {
+  resultIndex: number;
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  isFinal: boolean;
+  length: number;
+  [index: number]: { transcript: string; confidence: number };
+}
+
+interface SpeechRecognitionErrEvent {
+  error: string;
+}
+
+interface SpeechRecognitionConstructor {
+  new (): SpeechRecognitionInstance;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  }
+}
 
 interface ExerciseItem {
   id: string;
@@ -34,29 +75,29 @@ interface CollectedData {
 
 const STEP_CONFIG = [
   {
-    label: 'ìš´ë™ ì„ íƒ',
-    hint: 'ì²˜ë°©ëœ ìš´ë™ ì´ë¦„ì„ ë§ì”€í•´ì£¼ì„¸ìš”',
+    label: '¿îµ¿ ¼±ÅÃ',
+    hint: 'Ã³¹æµÈ ¿îµ¿ ÀÌ¸§À» ¸»¾¸ÇØÁÖ¼¼¿ä',
     example: '',
   },
   {
-    label: 'ì„¸íŠ¸ ìˆ˜',
-    hint: 'ì„¸íŠ¸ ìˆ˜ë¥¼ ë§ì”€í•´ì£¼ì„¸ìš”',
-    example: '"3ì„¸íŠ¸"',
+    label: '¼¼Æ® ¼ö',
+    hint: '¼¼Æ® ¼ö¸¦ ¸»¾¸ÇØÁÖ¼¼¿ä',
+    example: '"3¼¼Æ®"',
   },
   {
-    label: 'íšŸìˆ˜',
-    hint: 'íšŸìˆ˜ë¥¼ ë§ì”€í•´ì£¼ì„¸ìš”',
-    example: '"15íšŒ"',
+    label: 'È½¼ö',
+    hint: 'È½¼ö¸¦ ¸»¾¸ÇØÁÖ¼¼¿ä',
+    example: '"15È¸"',
   },
   {
-    label: 'í†µì¦ ì ìˆ˜',
-    hint: 'í†µì¦ ì ìˆ˜ë¥¼ ë§ì”€í•´ì£¼ì„¸ìš”',
-    example: '"3ì " ë˜ëŠ” "ì—†ì–´ìš”"',
+    label: 'ÅëÁõ Á¡¼ö',
+    hint: 'ÅëÁõ Á¡¼ö¸¦ ¸»¾¸ÇØÁÖ¼¼¿ä',
+    example: '"3Á¡" ¶Ç´Â "¾ø¾î¿ä"',
   },
   {
-    label: 'ë‚œì´ë„',
-    hint: 'ë‚œì´ë„ë¥¼ ë§ì”€í•´ì£¼ì„¸ìš”',
-    example: '"ì‰¬ì›Œìš”" / "ë³´í†µ" / "í˜ë“¤ì—ˆì–´ìš”"',
+    label: '³­ÀÌµµ',
+    hint: '³­ÀÌµµ¸¦ ¸»¾¸ÇØÁÖ¼¼¿ä',
+    example: '"½¬¿ö¿ä" / "º¸Åë" / "Èûµé¾ú¾î¿ä"',
   },
 ];
 
@@ -87,7 +128,7 @@ function matchExercise(text: string, exercises: ExerciseItem[]): ExerciseItem | 
 }
 
 function parseSets(text: string): number | null {
-  const m = text.match(/(\d+)\s*ì„¸íŠ¸/);
+  const m = text.match(/(\d+)\s*¼¼Æ®/);
   if (m) return parseInt(m[1]);
   const m2 = text.match(/^(\d+)$/);
   if (m2) {
@@ -98,7 +139,7 @@ function parseSets(text: string): number | null {
 }
 
 function parseReps(text: string): number | null {
-  const m = text.match(/(\d+)\s*íšŒ/);
+  const m = text.match(/(\d+)\s*È¸/);
   if (m) return parseInt(m[1]);
   const m2 = text.match(/^(\d+)$/);
   if (m2) {
@@ -109,11 +150,11 @@ function parseReps(text: string): number | null {
 }
 
 function parsePain(text: string): number | null {
-  const noWords = ['ì—†ì–´ìš”', 'ì—†ìŒ', 'ì•ˆì•„íŒŒ', 'ì•ˆì•„í”„', 'ì—†ë‹¤', 'ê´œì°®ì•„', 'ì—†ì–´', 'í†µì¦ì—†'];
+  const noWords = ['¾ø¾î¿ä', '¾øÀ½', '¾È¾ÆÆÄ', '¾È¾ÆÇÁ', '¾ø´Ù', '±¦Âú¾Æ', '¾ø¾î', 'ÅëÁõ¾ø'];
   for (const w of noWords) {
     if (text.includes(w)) return 0;
   }
-  const m = text.match(/(\d+)\s*ì /);
+  const m = text.match(/(\d+)\s*Á¡/);
   if (m) {
     const n = parseInt(m[1]);
     return Math.min(10, Math.max(0, n));
@@ -127,14 +168,14 @@ function parsePain(text: string): number | null {
 }
 
 function parseDifficulty(text: string): Difficulty | null {
-  if (/ì‰¬ì›Œ|í¸í•´|í¸í–ˆ|ì‰¬ìŒ|ì‰¬ì› |ì‰¬ì—ˆ|easy/i.test(text)) return 'easy';
-  if (/ë³´í†µ|ì¤‘ê°„|medium|ì ë‹¹|ì ì ˆ|ê·¸ëƒ¥/i.test(text)) return 'medium';
-  if (/í˜ë“¤|ì–´ë ¤|í˜ê²¨|í˜ê²¼|hard|í˜ë“¤ì—ˆ|í˜ë“¤ì–´/i.test(text)) return 'hard';
+  if (/½¬¿ö|ÆíÇØ|ÆíÇß|½¬À½|½¬¿ü|½¬¾ú|easy/i.test(text)) return 'easy';
+  if (/º¸Åë|Áß°£|medium|Àû´ç|ÀûÀı|±×³É/i.test(text)) return 'medium';
+  if (/Èûµé|¾î·Á|Èû°Ü|Èû°å|hard|Èûµé¾ú|Èûµé¾î/i.test(text)) return 'hard';
   return null;
 }
 
 function difficultyLabel(d: Difficulty): string {
-  return d === 'easy' ? 'ì‰¬ì›Œìš”' : d === 'medium' ? 'ë³´í†µ' : 'í˜ë“¤ì—ˆì–´ìš”';
+  return d === 'easy' ? '½¬¿ö¿ä' : d === 'medium' ? 'º¸Åë' : 'Èûµé¾ú¾î¿ä';
 }
 
 const DIFFICULTY_STYLES: Record<Difficulty, string> = {
@@ -177,7 +218,7 @@ export default function VoiceLogRecorder({ prescribedExercises, onConfirm }: Pro
   const exercisesRef = useRef(prescribedExercises);
   exercisesRef.current = prescribedExercises;
 
-  // Handler called from recognition.onend â€” stored in ref to always be fresh
+  // Handler called from recognition.onend ? stored in ref to always be fresh
   const handleRecognizedRef = useRef<(text: string) => void>(null!);
   handleRecognizedRef.current = (text: string) => {
     const step = currentStepRef.current;
@@ -189,7 +230,7 @@ export default function VoiceLogRecorder({ prescribedExercises, onConfirm }: Pro
       const match = matchExercise(text, exercisesRef.current);
       if (!match) {
         setPhase('error');
-        setErrorMsg(`"${text}"ì— í•´ë‹¹í•˜ëŠ” ìš´ë™ì„ ì°¾ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤.`);
+        setErrorMsg(`"${text}"¿¡ ÇØ´çÇÏ´Â ¿îµ¿À» Ã£À» ¼ö ¾ø½À´Ï´Ù.`);
         return;
       }
       newData = { ...newData, exerciseId: match.id, exerciseName: match.name };
@@ -198,34 +239,34 @@ export default function VoiceLogRecorder({ prescribedExercises, onConfirm }: Pro
       const sets = parseSets(text);
       if (sets === null) {
         setPhase('error');
-        setErrorMsg(`ì„¸íŠ¸ ìˆ˜ë¥¼ ì¸ì‹í•˜ì§€ ëª»í–ˆìŠµë‹ˆë‹¤. "${text}" â€” "3ì„¸íŠ¸" í˜•ì‹ìœ¼ë¡œ ë§ì”€í•´ì£¼ì„¸ìš”.`);
+        setErrorMsg(`¼¼Æ® ¼ö¸¦ ÀÎ½ÄÇÏÁö ¸øÇß½À´Ï´Ù. "${text}" ? "3¼¼Æ®" Çü½ÄÀ¸·Î ¸»¾¸ÇØÁÖ¼¼¿ä.`);
         return;
       }
       newData = { ...newData, sets };
-      values[1] = `${sets}ì„¸íŠ¸`;
+      values[1] = `${sets}¼¼Æ®`;
     } else if (step === 2) {
       const reps = parseReps(text);
       if (reps === null) {
         setPhase('error');
-        setErrorMsg(`íšŸìˆ˜ë¥¼ ì¸ì‹í•˜ì§€ ëª»í–ˆìŠµë‹ˆë‹¤. "${text}" â€” "15íšŒ" í˜•ì‹ìœ¼ë¡œ ë§ì”€í•´ì£¼ì„¸ìš”.`);
+        setErrorMsg(`È½¼ö¸¦ ÀÎ½ÄÇÏÁö ¸øÇß½À´Ï´Ù. "${text}" ? "15È¸" Çü½ÄÀ¸·Î ¸»¾¸ÇØÁÖ¼¼¿ä.`);
         return;
       }
       newData = { ...newData, reps };
-      values[2] = `${reps}íšŒ`;
+      values[2] = `${reps}È¸`;
     } else if (step === 3) {
       const pain = parsePain(text);
       if (pain === null) {
         setPhase('error');
-        setErrorMsg(`í†µì¦ ì ìˆ˜ë¥¼ ì¸ì‹í•˜ì§€ ëª»í–ˆìŠµë‹ˆë‹¤. "${text}" â€” "3ì " ë˜ëŠ” "ì—†ì–´ìš”"ë¡œ ë§ì”€í•´ì£¼ì„¸ìš”.`);
+        setErrorMsg(`ÅëÁõ Á¡¼ö¸¦ ÀÎ½ÄÇÏÁö ¸øÇß½À´Ï´Ù. "${text}" ? "3Á¡" ¶Ç´Â "¾ø¾î¿ä"·Î ¸»¾¸ÇØÁÖ¼¼¿ä.`);
         return;
       }
       newData = { ...newData, painScore: pain };
-      values[3] = pain === 0 ? 'ì—†ìŒ' : `${pain}ì `;
+      values[3] = pain === 0 ? '¾øÀ½' : `${pain}Á¡`;
     } else if (step === 4) {
       const diff = parseDifficulty(text);
       if (!diff) {
         setPhase('error');
-        setErrorMsg(`ë‚œì´ë„ë¥¼ ì¸ì‹í•˜ì§€ ëª»í–ˆìŠµë‹ˆë‹¤. "${text}" â€” "ì‰¬ì›Œìš”", "ë³´í†µ", "í˜ë“¤ì—ˆì–´ìš”" ì¤‘ í•˜ë‚˜ë¡œ ë§ì”€í•´ì£¼ì„¸ìš”.`);
+        setErrorMsg(`³­ÀÌµµ¸¦ ÀÎ½ÄÇÏÁö ¸øÇß½À´Ï´Ù. "${text}" ? "½¬¿ö¿ä", "º¸Åë", "Èûµé¾ú¾î¿ä" Áß ÇÏ³ª·Î ¸»¾¸ÇØÁÖ¼¼¿ä.`);
         return;
       }
       newData = { ...newData, difficulty: diff };
@@ -254,7 +295,7 @@ export default function VoiceLogRecorder({ prescribedExercises, onConfirm }: Pro
     const SpeechRecognitionAPI = window.SpeechRecognition ?? window.webkitSpeechRecognition;
     if (!SpeechRecognitionAPI) {
       setPhase('error');
-      setErrorMsg('ì´ ë¸Œë¼ìš°ì €ëŠ” ìŒì„± ì¸ì‹ì„ ì§€ì›í•˜ì§€ ì•ŠìŠµë‹ˆë‹¤. Chromeì„ ì‚¬ìš©í•´ì£¼ì„¸ìš”.');
+      setErrorMsg('ÀÌ ºê¶ó¿ìÀú´Â À½¼º ÀÎ½ÄÀ» Áö¿øÇÏÁö ¾Ê½À´Ï´Ù. ChromeÀ» »ç¿ëÇØÁÖ¼¼¿ä.');
       return;
     }
 
@@ -268,7 +309,7 @@ export default function VoiceLogRecorder({ prescribedExercises, onConfirm }: Pro
     recognition.continuous = false;
     recognition.interimResults = true;
 
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
+    recognition.onresult = (event: SpeechRecognitionResultEvent) => {
       let finalText = '';
       let interimText = '';
       for (let i = 0; i < event.results.length; i++) {
@@ -284,21 +325,21 @@ export default function VoiceLogRecorder({ prescribedExercises, onConfirm }: Pro
       const text = finalTextRef.current.trim();
       if (!text) {
         setPhase('error');
-        setErrorMsg('ìŒì„±ì´ ì¸ì‹ë˜ì§€ ì•Šì•˜ìŠµë‹ˆë‹¤. ë§ˆì´í¬ì— ê°€ê¹Œì´ ëŒ€ê³  ë‹¤ì‹œ ë§ì”€í•´ì£¼ì„¸ìš”.');
+        setErrorMsg('À½¼ºÀÌ ÀÎ½ÄµÇÁö ¾Ê¾Ò½À´Ï´Ù. ¸¶ÀÌÅ©¿¡ °¡±îÀÌ ´ë°í ´Ù½Ã ¸»¾¸ÇØÁÖ¼¼¿ä.');
         return;
       }
       handleRecognizedRef.current(text);
     };
 
-    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+    recognition.onerror = (event: SpeechRecognitionErrEvent) => {
       if (event.error === 'aborted') return;
       if (event.error === 'no-speech') {
         setPhase('error');
-        setErrorMsg('ìŒì„±ì´ ê°ì§€ë˜ì§€ ì•Šì•˜ìŠµë‹ˆë‹¤. ë‹¤ì‹œ ì‹œë„í•´ì£¼ì„¸ìš”.');
+        setErrorMsg('À½¼ºÀÌ °¨ÁöµÇÁö ¾Ê¾Ò½À´Ï´Ù. ´Ù½Ã ½ÃµµÇØÁÖ¼¼¿ä.');
         return;
       }
       setPhase('error');
-      setErrorMsg('ë§ˆì´í¬ ì˜¤ë¥˜: ' + event.error);
+      setErrorMsg('¸¶ÀÌÅ© ¿À·ù: ' + event.error);
     };
 
     recogRef.current = recognition;
@@ -375,22 +416,22 @@ export default function VoiceLogRecorder({ prescribedExercises, onConfirm }: Pro
             <MicIcon className="text-white" size={16} />
           </div>
           <div>
-            <h2 className="font-bold text-slate-900 text-sm">ê¸°ë¡ í™•ì¸</h2>
-            <p className="text-xs text-slate-500">ë‚´ìš©ì„ í™•ì¸í•˜ê³  ì €ì¥í•´ì£¼ì„¸ìš”</p>
+            <h2 className="font-bold text-slate-900 text-sm">±â·Ï È®ÀÎ</h2>
+            <p className="text-xs text-slate-500">³»¿ëÀ» È®ÀÎÇÏ°í ÀúÀåÇØÁÖ¼¼¿ä</p>
           </div>
         </div>
 
         <div className="bg-white rounded-2xl border border-blue-100 shadow-sm p-4 space-y-3 mb-4">
-          <ConfirmRow label="ìš´ë™" value={d.exerciseName} />
-          <ConfirmRow label="ì„¸íŠ¸" value={`${d.sets}ì„¸íŠ¸`} />
-          <ConfirmRow label="íšŸìˆ˜" value={`${d.reps}íšŒ`} />
+          <ConfirmRow label="¿îµ¿" value={d.exerciseName} />
+          <ConfirmRow label="¼¼Æ®" value={`${d.sets}¼¼Æ®`} />
+          <ConfirmRow label="È½¼ö" value={`${d.reps}È¸`} />
           <ConfirmRow
-            label="í†µì¦"
-            value={d.painScore === 0 ? 'ì—†ìŒ (0ì )' : `${d.painScore}ì `}
+            label="ÅëÁõ"
+            value={d.painScore === 0 ? '¾øÀ½ (0Á¡)' : `${d.painScore}Á¡`}
             valueClass={PAIN_COLOR(d.painScore)}
           />
           <div className={`rounded-xl p-3 text-center border ${DIFFICULTY_STYLES[d.difficulty]}`}>
-            <p className="text-xs mb-0.5 opacity-60 font-medium">ë‚œì´ë„</p>
+            <p className="text-xs mb-0.5 opacity-60 font-medium">³­ÀÌµµ</p>
             <p className="text-sm font-bold">{difficultyLabel(d.difficulty)}</p>
           </div>
         </div>
@@ -401,7 +442,7 @@ export default function VoiceLogRecorder({ prescribedExercises, onConfirm }: Pro
             onClick={() => goToStep(0)}
             className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-all"
           >
-            ì²˜ìŒë¶€í„° ë‹¤ì‹œ
+            Ã³À½ºÎÅÍ ´Ù½Ã
           </button>
           <button
             type="button"
@@ -412,7 +453,7 @@ export default function VoiceLogRecorder({ prescribedExercises, onConfirm }: Pro
             {saving && (
               <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
             )}
-            {saving ? 'ì €ì¥ ì¤‘...' : 'ì €ì¥í•˜ê¸°'}
+            {saving ? 'ÀúÀå Áß...' : 'ÀúÀåÇÏ±â'}
           </button>
         </div>
       </div>
@@ -429,8 +470,8 @@ export default function VoiceLogRecorder({ prescribedExercises, onConfirm }: Pro
             <MicIcon className="text-white" size={16} />
           </div>
           <div>
-            <h2 className="font-bold text-slate-900 text-sm">ìŒì„±ìœ¼ë¡œ ê¸°ë¡í•˜ê¸°</h2>
-            <p className="text-xs text-slate-500">ë‹¨ê³„ë§ˆë‹¤ í•˜ë‚˜ì”© ë§ì”€í•´ì£¼ì„¸ìš”</p>
+            <h2 className="font-bold text-slate-900 text-sm">À½¼ºÀ¸·Î ±â·ÏÇÏ±â</h2>
+            <p className="text-xs text-slate-500">´Ü°è¸¶´Ù ÇÏ³ª¾¿ ¸»¾¸ÇØÁÖ¼¼¿ä</p>
           </div>
         </div>
         {stepValues.some(v => v !== null) && (
@@ -439,7 +480,7 @@ export default function VoiceLogRecorder({ prescribedExercises, onConfirm }: Pro
             onClick={resetAll}
             className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
           >
-            ì´ˆê¸°í™”
+            ÃÊ±âÈ­
           </button>
         )}
       </div>
@@ -485,7 +526,7 @@ export default function VoiceLogRecorder({ prescribedExercises, onConfirm }: Pro
                     isCurrent ? 'text-blue-700' : isDone ? 'text-slate-700' : 'text-slate-400'
                   }`}
                 >
-                  {i + 1}ë‹¨ê³„ Â· {step.label}
+                  {i + 1}´Ü°è ¡¤ {step.label}
                 </span>
 
                 {/* Recognized value */}
@@ -493,7 +534,7 @@ export default function VoiceLogRecorder({ prescribedExercises, onConfirm }: Pro
                   <span className="text-emerald-600 font-semibold text-sm">{stepValues[i]}</span>
                 )}
                 {isDone && (
-                  <span className="text-slate-300 text-xs">ìˆ˜ì •</span>
+                  <span className="text-slate-300 text-xs">¼öÁ¤</span>
                 )}
               </button>
 
@@ -504,7 +545,7 @@ export default function VoiceLogRecorder({ prescribedExercises, onConfirm }: Pro
                   <p className="text-xs text-slate-500 pl-1">
                     {step.hint}
                     {step.example && (
-                      <span className="ml-1 text-blue-500 font-medium">ì˜ˆ: {step.example}</span>
+                      <span className="ml-1 text-blue-500 font-medium">¿¹: {step.example}</span>
                     )}
                   </p>
 
@@ -528,7 +569,7 @@ export default function VoiceLogRecorder({ prescribedExercises, onConfirm }: Pro
                       {transcript ? (
                         transcript
                       ) : (
-                        <span className="text-slate-400 animate-pulse">ë“£ê³  ìˆì–´ìš”...</span>
+                        <span className="text-slate-400 animate-pulse">µè°í ÀÖ¾î¿ä...</span>
                       )}
                     </div>
                   )}
@@ -536,7 +577,7 @@ export default function VoiceLogRecorder({ prescribedExercises, onConfirm }: Pro
                   {/* Success box */}
                   {phase === 'success' && (
                     <div className="bg-emerald-50 rounded-xl p-3 text-sm text-emerald-700 border border-emerald-200 flex items-center gap-2">
-                      <span className="text-emerald-500 font-bold text-base">âœ“</span>
+                      <span className="text-emerald-500 font-bold text-base">?</span>
                       <span className="font-medium">{transcript}</span>
                     </div>
                   )}
@@ -557,7 +598,7 @@ export default function VoiceLogRecorder({ prescribedExercises, onConfirm }: Pro
                         className="w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold transition-all shadow-sm shadow-blue-200 flex items-center justify-center gap-2"
                       >
                         <MicIcon className="text-white" size={16} />
-                        {phase === 'error' ? 'ë‹¤ì‹œ ë§í•˜ê¸°' : 'ë§í•˜ê¸° ì‹œì‘'}
+                        {phase === 'error' ? '´Ù½Ã ¸»ÇÏ±â' : '¸»ÇÏ±â ½ÃÀÛ'}
                       </button>
                     ) : (
                       <button
@@ -566,7 +607,7 @@ export default function VoiceLogRecorder({ prescribedExercises, onConfirm }: Pro
                         className="w-full py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-bold transition-all flex items-center justify-center gap-2"
                       >
                         <span className="w-3 h-3 bg-white rounded-sm" />
-                        <span className="animate-pulse">ë…¹ìŒ ì¤‘ â€” ì™„ë£Œí•˜ë ¤ë©´ ëˆ„ë¥´ì„¸ìš”</span>
+                        <span className="animate-pulse">³ìÀ½ Áß ? ¿Ï·áÇÏ·Á¸é ´©¸£¼¼¿ä</span>
                       </button>
                     )
                   )}

@@ -9,8 +9,13 @@ import DonutChart from '@/components/charts/DonutChart';
 import PainTrendChart from '@/components/charts/PainTrendChart';
 import EmptyState from '@/components/ui/EmptyState';
 import Link from 'next/link';
-import VoiceExerciseLogger from '@/components/patient/VoiceExerciseLogger';
-import { APP_TODAY } from '@/lib/constants/date';
+
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+
+function getTodayLabel(): string {
+  const d = new Date();
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 · ${WEEKDAYS[d.getDay()]}요일`;
+}
 
 export default function PatientDashboard() {
   const { currentUser, getPatientLogs, getPatientPrescription } = useApp();
@@ -20,7 +25,7 @@ export default function PatientDashboard() {
   const prescription = getPatientPrescription(currentUser.id);
   const stats = getPatientStats(logs, prescription);
 
-  const todayStr = APP_TODAY;
+  const todayStr = new Date().toISOString().split('T')[0];
   const todayLogs = logs.filter(l => l.date === todayStr);
   const todayExercises = prescription?.exercises ?? [];
   const completedIds = new Set(todayLogs.map(l => l.exerciseId));
@@ -33,16 +38,14 @@ export default function PatientDashboard() {
 
   return (
     <div className="p-8 max-w-2xl mx-auto">
-      {/* 헤더 */}
       <div className="mb-8">
-        <p className="text-sm font-medium text-slate-400 mb-1">2026년 5월 7일 · 목요일</p>
+        <p className="text-sm font-medium text-slate-400 mb-1">{getTodayLabel()}</p>
         <h1 className="text-3xl font-bold text-slate-900">
           안녕하세요, <span className="text-blue-600">{currentUser.name}</span>님
         </h1>
         <p className="text-slate-500 mt-1">오늘도 재활 운동 화이팅이에요!</p>
       </div>
 
-      {/* 전체 완료 축하 배너 */}
       {allDone && (
         <div className="mb-6 flex items-center gap-4 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl px-6 py-4 text-white card-shadow">
           <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center text-2xl flex-shrink-0">
@@ -55,7 +58,6 @@ export default function PatientDashboard() {
         </div>
       )}
 
-      {/* 통계 3개 */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         <Card className="p-5 col-span-1 flex flex-col items-center justify-center">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3 self-start">이번 주 수행률</p>
@@ -81,9 +83,6 @@ export default function PatientDashboard() {
         </Card>
       </div>
 
-      <VoiceExerciseLogger patientId={currentUser.id} />
-
-      {/* 오늘의 운동 */}
       <Card className="mb-6">
         <div className="px-6 pt-6 pb-4 border-b border-slate-50">
           <div className="flex items-center justify-between">
@@ -120,7 +119,7 @@ export default function PatientDashboard() {
           ) : (
             <div className="space-y-2.5">
               {todayExercises.map(pe => {
-                const ex = MOCK_EXERCISES.find(e => e.id === pe.exerciseId);
+                const exName = pe.exerciseName ?? MOCK_EXERCISES.find(e => e.id === pe.exerciseId)?.name;
                 const done = completedIds.has(pe.exerciseId);
                 const log = todayLogs.find(l => l.exerciseId === pe.exerciseId);
                 return (
@@ -131,7 +130,7 @@ export default function PatientDashboard() {
                         {done ? '✓' : ''}
                       </div>
                       <div>
-                        <p className={`text-sm font-semibold ${done ? 'text-emerald-800' : 'text-slate-800'}`}>{ex?.name}</p>
+                        <p className={`text-sm font-semibold ${done ? 'text-emerald-800' : 'text-slate-800'}`}>{exName}</p>
                         <p className="text-xs text-slate-400 mt-0.5">{pe.targetSets}세트 × {pe.targetReps}회</p>
                       </div>
                     </div>
@@ -153,7 +152,6 @@ export default function PatientDashboard() {
         </div>
       </Card>
 
-      {/* 통증 추이 */}
       <Card className="px-6 py-6">
         <div className="flex items-center justify-between mb-5">
           <div>

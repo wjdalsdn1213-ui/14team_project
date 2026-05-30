@@ -2,7 +2,7 @@ import { ExerciseLog, Prescription, PatientStats, AttentionLevel } from '@/lib/t
 
 export function calcCompletionRate(logs: ExerciseLog[], prescription: Prescription | undefined, daysBack = 7): number {
   if (!prescription) return 0;
-  const cutoff = new Date('2026-05-07');
+  const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - daysBack);
   const recent = logs.filter(l => new Date(l.date) >= cutoff);
   const expected = prescription.exercises.length * daysBack;
@@ -11,7 +11,7 @@ export function calcCompletionRate(logs: ExerciseLog[], prescription: Prescripti
 }
 
 export function calcAvgPainScore(logs: ExerciseLog[], daysBack = 7): number {
-  const cutoff = new Date('2026-05-07');
+  const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - daysBack);
   const recent = logs.filter(l => new Date(l.date) >= cutoff);
   if (recent.length === 0) return 0;
@@ -26,7 +26,7 @@ export function calcAttentionLevel(avgPain: number, completionRate: number): Att
 }
 
 export function calcStreak(logs: ExerciseLog[]): number {
-  const today = new Date('2026-05-07');
+  const today = new Date();
   let streak = 0;
   for (let i = 0; i < 30; i++) {
     const d = new Date(today);

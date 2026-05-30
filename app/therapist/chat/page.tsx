@@ -1,13 +1,26 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useApp } from '@/lib/context/AppContext';
 import { getPatientStats } from '@/lib/utils/stats';
+import { apiFetchConversations, ConversationSummary } from '@/lib/api';
 import Link from 'next/link';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 
 export default function TherapistChatListPage() {
-  const { currentUser, getTherapistPatients, getPatientLogs, getPatientPrescription, messages } = useApp();
+  const { currentUser, getTherapistPatients, getPatientLogs, getPatientPrescription } = useApp();
+  const [convMap, setConvMap] = useState<Map<string, ConversationSummary>>(new Map());
+
+  useEffect(() => {
+    apiFetchConversations()
+      .then(list => {
+        const map = new Map(list.map(c => [c.partnerId, c]));
+        setConvMap(map);
+      })
+      .catch(() => {});
+  }, []);
+
   if (!currentUser) return null;
 
   const patients = getTherapistPatients(currentUser.id);
@@ -24,15 +37,8 @@ export default function TherapistChatListPage() {
           const logs = getPatientLogs(patient.id);
           const prescription = getPatientPrescription(patient.id);
           const stats = getPatientStats(logs, prescription);
-
-          const conversation = messages.filter(m =>
-            (m.senderId === currentUser.id && m.receiverId === patient.id) ||
-            (m.senderId === patient.id && m.receiverId === currentUser.id)
-          );
-          const unread = conversation.filter(m => m.receiverId === currentUser.id && !m.read).length;
-          const lastMsg = [...conversation].sort((a, b) =>
-            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-          )[0];
+          const conv = convMap.get(patient.id);
+          const unread = conv?.unreadCount ?? 0;
 
           const attnVariant =
             stats.attentionLevel === 'critical' ? 'critical' as const
@@ -49,7 +55,7 @@ export default function TherapistChatListPage() {
                     </div>
                     {unread > 0 && (
                       <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full text-white text-xs font-bold flex items-center justify-center shadow-sm">
-                        {unread}
+                        {unread > 9 ? '9+' : unread}
                       </span>
                     )}
                   </div>
@@ -60,14 +66,16 @@ export default function TherapistChatListPage() {
                         <span className="font-bold text-slate-900">{patient.name}</span>
                         <Badge variant={attnVariant} dot>통증 {stats.avgPainScore}</Badge>
                       </div>
-                      {lastMsg && (
+                      {conv?.lastMessageTimestamp && (
                         <span className="text-xs text-slate-400">
-                          {new Date(lastMsg.timestamp).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
+                          {new Date(conv.lastMessageTimestamp).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
                         </span>
                       )}
                     </div>
-                    {lastMsg ? (
-                      <p className="text-sm text-slate-500 truncate">{lastMsg.content}</p>
+                    {conv?.lastMessageContent ? (
+                      <p className={`text-sm truncate ${unread > 0 ? 'text-slate-800 font-semibold' : 'text-slate-500'}`}>
+                        {conv.lastMessageContent}
+                      </p>
                     ) : (
                       <p className="text-sm text-slate-300">메시지 없음</p>
                     )}

@@ -15,9 +15,14 @@ type ModalStep = 1 | 2;
 type PrescMode = 'add' | 'new';
 
 export default function PrescriptionsPage() {
-  const { currentUser, prescriptions, addPrescription, addExercisesToPrescription, getPatientPrescription, users } = useApp();
+  const {
+    currentUser, users, prescriptions, addPrescription,
+    addExercisesToPrescription, updatePrescribedExercise, removePrescribedExercise,
+    getPatientPrescription, getTherapistPatients,
+  } = useApp();
   const { showToast } = useToast();
 
+  // »õ Ã³¹æ ¸ğ´Ş »óÅÂ
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<ModalStep>(1);
   const [patientId, setPatientId] = useState('');
@@ -26,9 +31,25 @@ export default function PrescriptionsPage() {
   const [notes, setNotes] = useState('');
   const [startDate, setStartDate] = useState('2026-05-07');
 
+  // ÆíÁı ¸ğ´Ş »óÅÂ
+  const [editOpen, setEditOpen] = useState(false);
+  const [editPrescId, setEditPrescId] = useState('');
+  const [editExId, setEditExId] = useState('');
+  const [editExName, setEditExName] = useState('');
+  const [editSets, setEditSets] = useState(3);
+  const [editReps, setEditReps] = useState(10);
+  const [editSaving, setEditSaving] = useState(false);
+
+  // »èÁ¦ È®ÀÎ ¸ğ´Ş »óÅÂ
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePrescId, setDeletePrescId] = useState('');
+  const [deleteExId, setDeleteExId] = useState('');
+  const [deleteExName, setDeleteExName] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   if (!currentUser) return null;
 
-  const myPatients = users.filter(u => u.role === 'patient' && u.therapistId === currentUser.id);
+  const myPatients = getTherapistPatients(currentUser.id);
   const myPrescriptions = prescriptions.filter(p => p.therapistId === currentUser.id);
 
   const openModal = () => {
@@ -62,14 +83,14 @@ export default function PrescriptionsPage() {
     setSelectedExercises(prev => prev.map(e => e.exerciseId === exId ? { ...e, [field]: val } : e));
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!patientId || selectedExercises.length === 0) return;
 
     if (mode === 'add') {
       const existing = getPatientPrescription(patientId);
       if (existing) {
-        await addExercisesToPrescription(existing.id, selectedExercises);
-        showToast(`${selectedExercises.length}ê°œ ìš´ë™ì´ ê¸°ì¡´ ì²˜ë°©ì— ì¶”ê°€ëìŠµë‹ˆë‹¤!`);
+        addExercisesToPrescription(existing.id, selectedExercises);
+        showToast(`${selectedExercises.length}°³ ¿îµ¿ÀÌ ±âÁ¸ Ã³¹æ¿¡ Ãß°¡µÆ½À´Ï´Ù!`);
       }
     } else {
       const presc: Prescription = {
@@ -80,10 +101,48 @@ export default function PrescriptionsPage() {
         startDate,
         notes: notes || undefined,
       };
-      await addPrescription(presc);
-      showToast('ìƒˆ ì²˜ë°©ì´ ì €ì¥ëìŠµë‹ˆë‹¤!');
+      addPrescription(presc);
+      showToast('»õ Ã³¹æÀÌ ÀúÀåµÆ½À´Ï´Ù!');
     }
     setIsOpen(false);
+  };
+
+  const openEdit = (prescId: string, exId: string, exName: string, sets: number, reps: number) => {
+    setEditPrescId(prescId);
+    setEditExId(exId);
+    setEditExName(exName);
+    setEditSets(sets);
+    setEditReps(reps);
+    setEditOpen(true);
+  };
+
+  const handleEditSave = async () => {
+    setEditSaving(true);
+    try {
+      await updatePrescribedExercise(editPrescId, editExId, { targetSets: editSets, targetReps: editReps });
+      showToast('Ã³¹æÀÌ ¼öÁ¤µÆ½À´Ï´Ù!');
+      setEditOpen(false);
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const openDelete = (prescId: string, exId: string, exName: string) => {
+    setDeletePrescId(prescId);
+    setDeleteExId(exId);
+    setDeleteExName(exName);
+    setDeleteOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    setDeleteLoading(true);
+    try {
+      await removePrescribedExercise(deletePrescId, deleteExId);
+      showToast(`${deleteExName} ¿îµ¿ÀÌ »èÁ¦µÆ½À´Ï´Ù.`);
+      setDeleteOpen(false);
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   const getPatient = (id: string) => users.find(u => u.id === id);
@@ -99,23 +158,23 @@ export default function PrescriptionsPage() {
     <div className="p-8 max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">ì²˜ë°© ê´€ë¦¬</h1>
-          <p className="text-slate-500 mt-1">í™˜ìë³„ ìš´ë™ ì²˜ë°©ì„ ì¡°íšŒí•˜ê³  ì¶”ê°€í•©ë‹ˆë‹¤</p>
+          <h1 className="text-3xl font-bold text-slate-900">Ã³¹æ °ü¸®</h1>
+          <p className="text-slate-500 mt-1">È¯ÀÚº° ¿îµ¿ Ã³¹æÀ» Á¶È¸ÇÏ°í Ãß°¡ÇÕ´Ï´Ù</p>
         </div>
         <Button onClick={openModal}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
           </svg>
-          ìƒˆ ì²˜ë°©
+          »õ Ã³¹æ
         </Button>
       </div>
 
-      {/* ì²˜ë°© ëª©ë¡ */}
+      {/* Ã³¹æ ¸ñ·Ï */}
       <div className="space-y-4">
         {myPrescriptions.length === 0 ? (
           <Card className="py-12 flex flex-col items-center gap-2">
-            <p className="text-slate-400 text-sm">ì•„ì§ ì²˜ë°©ëœ ìš´ë™ì´ ì—†ìŠµë‹ˆë‹¤.</p>
-            <p className="text-slate-300 text-xs">ìœ„ ë²„íŠ¼ìœ¼ë¡œ ì²« ì²˜ë°©ì„ ì¶”ê°€í•´ë³´ì„¸ìš”.</p>
+            <p className="text-slate-400 text-sm">¾ÆÁ÷ Ã³¹æµÈ ¿îµ¿ÀÌ ¾ø½À´Ï´Ù.</p>
+            <p className="text-slate-300 text-xs">À§ ¹öÆ°À¸·Î Ã¹ Ã³¹æÀ» Ãß°¡ÇØº¸¼¼¿ä.</p>
           </Card>
         ) : myPrescriptions.map(presc => {
           const patient = getPatient(presc.patientId);
@@ -135,27 +194,55 @@ export default function PrescriptionsPage() {
                         {patient?.name}
                       </Link>
                       <p className="text-xs text-slate-400 mt-0.5">
-                        {presc.startDate}{presc.endDate ? ` ~ ${presc.endDate}` : ' ~ ì§„í–‰ ì¤‘'}
+                        {presc.startDate}{presc.endDate ? ` ~ ${presc.endDate}` : ' ~ ÁøÇà Áß'}
                       </p>
                     </div>
                   </div>
-                  <Badge variant="neutral">{presc.exercises.length}ê°œ ìš´ë™</Badge>
+                  <Badge variant="neutral">{presc.exercises.length}°³ ¿îµ¿</Badge>
                 </div>
               </div>
 
               <div className="px-6 py-4">
                 <div className="divide-y divide-slate-50">
                   {presc.exercises.map(pe => {
-                    const ex = MOCK_EXERCISES.find(e => e.id === pe.exerciseId);
+                    const mockEx = MOCK_EXERCISES.find(e => e.id === pe.exerciseId);
+                    const exName = pe.exerciseName ?? mockEx?.name ?? '¾Ë ¼ö ¾ø´Â ¿îµ¿';
+                    const exBodyPart = pe.exerciseBodyPart ?? mockEx?.bodyPart ?? '';
                     return (
-                      <div key={pe.exerciseId} className="flex items-center justify-between py-3">
+                      <div key={pe.exerciseId} className="flex items-center justify-between py-3 group">
                         <div>
-                          <span className="text-sm font-semibold text-slate-800">{ex?.name}</span>
-                          <span className="text-xs text-slate-400 ml-2">{BODY_PART_LABELS[ex?.bodyPart ?? '']}</span>
+                          <span className="text-sm font-semibold text-slate-800">{exName}</span>
+                          <span className="text-xs text-slate-400 ml-2">{BODY_PART_LABELS[exBodyPart]}</span>
                         </div>
-                        <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg tabular-nums">
-                          {pe.targetSets}ì„¸íŠ¸ Ã— {pe.targetReps}íšŒ
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg tabular-nums">
+                            {pe.targetSets}¼¼Æ® ¡¿ {pe.targetReps}È¸
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => openEdit(presc.id, pe.exerciseId, exName, pe.targetSets, pe.targetReps)}
+                            className="p-1.5 rounded-lg text-slate-300 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                            title="ÆíÁı"
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openDelete(presc.id, pe.exerciseId, exName)}
+                            className="p-1.5 rounded-lg text-slate-300 hover:text-red-600 hover:bg-red-50 transition-all"
+                            title="»èÁ¦"
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="3 6 5 6 21 6"/>
+                              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                              <path d="M10 11v6"/><path d="M14 11v6"/>
+                              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                            </svg>
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -163,7 +250,7 @@ export default function PrescriptionsPage() {
 
                 {presc.notes && (
                   <div className="mt-3 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl">
-                    <p className="text-xs font-semibold text-slate-500 mb-1">ì¹˜ë£Œì‚¬ ë©”ëª¨</p>
+                    <p className="text-xs font-semibold text-slate-500 mb-1">Ä¡·á»ç ¸Ş¸ğ</p>
                     <p className="text-xs text-slate-600 leading-relaxed">{presc.notes}</p>
                   </div>
                 )}
@@ -173,17 +260,17 @@ export default function PrescriptionsPage() {
         })}
       </div>
 
-      {/* ì²˜ë°© ëª¨ë‹¬ */}
+      {/* Ã³¹æ ¸ğ´Ş */}
       <Modal
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
-        title={step === 1 ? 'í™˜ì ì„ íƒ' : `ì²˜ë°© ì¶”ê°€ â€” ${selectedPatient?.name}`}
+        title={step === 1 ? 'È¯ÀÚ ¼±ÅÃ' : `Ã³¹æ Ãß°¡ ? ${selectedPatient?.name}`}
         size="lg"
       >
         {step === 1 ? (
-          /* â”€â”€ Step 1: í™˜ì ì„ íƒ â”€â”€ */
+          /* ¦¡¦¡ Step 1: È¯ÀÚ ¼±ÅÃ ¦¡¦¡ */
           <div className="space-y-2">
-            <p className="text-sm text-slate-500 mb-4">ì²˜ë°©ì„ ì¶”ê°€í•  í™˜ìë¥¼ ì„ íƒí•˜ì„¸ìš”.</p>
+            <p className="text-sm text-slate-500 mb-4">Ã³¹æÀ» Ãß°¡ÇÒ È¯ÀÚ¸¦ ¼±ÅÃÇÏ¼¼¿ä.</p>
             {myPatients.map(p => {
               const existing = getPatientPrescription(p.id);
               return (
@@ -199,7 +286,7 @@ export default function PrescriptionsPage() {
                     <div>
                       <p className="text-sm font-semibold text-slate-800">{p.name}</p>
                       <p className="text-xs text-slate-400 mt-0.5">
-                        {existing ? `ì²˜ë°© ì¤‘ (${existing.exercises.length}ê°œ ìš´ë™)` : 'ì²˜ë°© ì—†ìŒ'}
+                        {existing ? `Ã³¹æ Áß (${existing.exercises.length}°³ ¿îµ¿)` : 'Ã³¹æ ¾øÀ½'}
                       </p>
                     </div>
                   </div>
@@ -211,9 +298,9 @@ export default function PrescriptionsPage() {
             })}
           </div>
         ) : (
-          /* â”€â”€ Step 2: ìš´ë™ ì¶”ê°€ â”€â”€ */
+          /* ¦¡¦¡ Step 2: ¿îµ¿ Ãß°¡ ¦¡¦¡ */
           <div className="space-y-5">
-            {/* ë’¤ë¡œ ê°€ê¸° */}
+            {/* µÚ·Î °¡±â */}
             <button
               onClick={() => setStep(1)}
               className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors"
@@ -221,17 +308,17 @@ export default function PrescriptionsPage() {
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="15 18 9 12 15 6" />
               </svg>
-              í™˜ì ë‹¤ì‹œ ì„ íƒ
+              È¯ÀÚ ´Ù½Ã ¼±ÅÃ
             </button>
 
-            {/* ê¸°ì¡´ ì²˜ë°© ì—¬ë¶€ì— ë”°ë¥¸ ëª¨ë“œ ì„ íƒ */}
+            {/* ±âÁ¸ Ã³¹æ ¿©ºÎ¿¡ µû¸¥ ¸ğµå ¼±ÅÃ */}
             {existingPresc ? (
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">ì²˜ë°© ë°©ì‹</p>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Ã³¹æ ¹æ½Ä</p>
                 <div className="grid grid-cols-2 gap-2">
                   {([
-                    { val: 'add' as PrescMode, label: 'ê¸°ì¡´ ì²˜ë°©ì— ì¶”ê°€', desc: `í˜„ì¬ ${existingPresc.exercises.length}ê°œ ìš´ë™ì— ì¶”ê°€` },
-                    { val: 'new' as PrescMode, label: 'ìƒˆ ì²˜ë°© ë§Œë“¤ê¸°', desc: 'ê¸°ì¡´ ì²˜ë°©ê³¼ ë³„ë„ë¡œ ìƒˆë¡œ ìƒì„±' },
+                    { val: 'add' as PrescMode, label: '±âÁ¸ Ã³¹æ¿¡ Ãß°¡', desc: `ÇöÀç ${existingPresc.exercises.length}°³ ¿îµ¿¿¡ Ãß°¡` },
+                    { val: 'new' as PrescMode, label: '»õ Ã³¹æ ¸¸µé±â', desc: '±âÁ¸ Ã³¹æ°ú º°µµ·Î »õ·Î »ı¼º' },
                   ] as const).map(opt => (
                     <button
                       key={opt.val}
@@ -250,23 +337,23 @@ export default function PrescriptionsPage() {
               </div>
             ) : (
               <div className="px-4 py-3 bg-amber-50 border border-amber-100 rounded-xl">
-                <p className="text-xs text-amber-700 font-semibold">ì²˜ë°© ì—†ìŒ</p>
-                <p className="text-xs text-amber-600 mt-0.5">ì´ í™˜ìì—ê²Œ ì²« ì²˜ë°©ì„ ìƒì„±í•©ë‹ˆë‹¤.</p>
+                <p className="text-xs text-amber-700 font-semibold">Ã³¹æ ¾øÀ½</p>
+                <p className="text-xs text-amber-600 mt-0.5">ÀÌ È¯ÀÚ¿¡°Ô Ã¹ Ã³¹æÀ» »ı¼ºÇÕ´Ï´Ù.</p>
               </div>
             )}
 
-            {/* ìš´ë™ ì„ íƒ */}
+            {/* ¿îµ¿ ¼±ÅÃ */}
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
-                ìš´ë™ ì„ íƒ{' '}
-                <span className="text-blue-500 normal-case font-medium">({selectedExercises.length}ê°œ ì„ íƒ)</span>
+                ¿îµ¿ ¼±ÅÃ{' '}
+                <span className="text-blue-500 normal-case font-medium">({selectedExercises.length}°³ ¼±ÅÃ)</span>
                 {mode === 'add' && availableForAdd.length < MOCK_EXERCISES.length && (
-                  <span className="text-slate-400 normal-case font-normal ml-1">â€” ì´ë¯¸ ì²˜ë°©ëœ ìš´ë™ ì œì™¸</span>
+                  <span className="text-slate-400 normal-case font-normal ml-1">? ÀÌ¹Ì Ã³¹æµÈ ¿îµ¿ Á¦¿Ü</span>
                 )}
               </label>
               {availableForAdd.length === 0 ? (
                 <div className="py-6 text-center text-sm text-slate-400 border border-slate-100 rounded-xl">
-                  ì¶”ê°€ ê°€ëŠ¥í•œ ìš´ë™ì´ ì—†ìŠµë‹ˆë‹¤. ëª¨ë“  ìš´ë™ì´ ì´ë¯¸ ì²˜ë°©ë˜ì–´ ìˆìŠµë‹ˆë‹¤.
+                  Ãß°¡ °¡´ÉÇÑ ¿îµ¿ÀÌ ¾ø½À´Ï´Ù. ¸ğµç ¿îµ¿ÀÌ ÀÌ¹Ì Ã³¹æµÇ¾î ÀÖ½À´Ï´Ù.
                 </div>
               ) : (
                 <div className="space-y-1 max-h-52 overflow-y-auto rounded-xl border border-slate-100 p-2">
@@ -293,7 +380,7 @@ export default function PrescriptionsPage() {
                           <div className="flex gap-4 px-4 pb-3">
                             {(['targetSets', 'targetReps'] as const).map(field => (
                               <label key={field} className="flex items-center gap-2 text-xs text-slate-600">
-                                <span className="font-semibold">{field === 'targetSets' ? 'ì„¸íŠ¸' : 'íšŸìˆ˜'}</span>
+                                <span className="font-semibold">{field === 'targetSets' ? '¼¼Æ®' : 'È½¼ö'}</span>
                                 <input
                                   type="number"
                                   min={field === 'targetSets' ? 1 : 1}
@@ -313,11 +400,11 @@ export default function PrescriptionsPage() {
               )}
             </div>
 
-            {/* ìƒˆ ì²˜ë°© ì˜µì…˜: ì‹œì‘ì¼ + ë©”ëª¨ */}
+            {/* »õ Ã³¹æ ¿É¼Ç: ½ÃÀÛÀÏ + ¸Ş¸ğ */}
             {mode === 'new' && (
               <>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">ì‹œì‘ì¼</label>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">½ÃÀÛÀÏ</label>
                   <input
                     type="date"
                     value={startDate}
@@ -326,12 +413,12 @@ export default function PrescriptionsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">ë©”ëª¨ (ì„ íƒ)</label>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">¸Ş¸ğ (¼±ÅÃ)</label>
                   <textarea
                     value={notes}
                     onChange={e => setNotes(e.target.value)}
                     rows={2}
-                    placeholder="ì£¼ì˜ì‚¬í•­, ê°•ë„ ì¡°ì ˆ ê°€ì´ë“œ ë“±ì„ ì…ë ¥í•˜ì„¸ìš”"
+                    placeholder="ÁÖÀÇ»çÇ×, °­µµ Á¶Àı °¡ÀÌµå µîÀ» ÀÔ·ÂÇÏ¼¼¿ä"
                     className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm resize-none bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
                   />
                 </div>
@@ -339,16 +426,76 @@ export default function PrescriptionsPage() {
             )}
 
             <div className="flex gap-2 justify-end pt-1">
-              <Button variant="secondary" onClick={() => setIsOpen(false)}>ì·¨ì†Œ</Button>
+              <Button variant="secondary" onClick={() => setIsOpen(false)}>Ãë¼Ò</Button>
               <Button
                 onClick={handleSave}
                 disabled={selectedExercises.length === 0}
               >
-                {mode === 'add' ? 'ê¸°ì¡´ ì²˜ë°©ì— ì¶”ê°€' : 'ìƒˆ ì²˜ë°© ì €ì¥'}
+                {mode === 'add' ? '±âÁ¸ Ã³¹æ¿¡ Ãß°¡' : '»õ Ã³¹æ ÀúÀå'}
               </Button>
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* ÆíÁı ¸ğ´Ş */}
+      <Modal isOpen={editOpen} onClose={() => setEditOpen(false)} title="Ã³¹æ ¿îµ¿ ÆíÁı" size="sm">
+        <div className="space-y-4">
+          <div className="bg-slate-50 rounded-xl px-4 py-3">
+            <p className="text-xs text-slate-400 mb-0.5">¿îµ¿</p>
+            <p className="text-sm font-bold text-slate-800">{editExName}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-slate-500 block mb-2">¼¼Æ® ¼ö</label>
+              <input
+                type="number" min={1} max={10} value={editSets}
+                onChange={e => setEditSets(Number(e.target.value))}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-500 block mb-2">¹İº¹ È½¼ö</label>
+              <input
+                type="number" min={1} max={100} value={editReps}
+                onChange={e => setEditReps(Number(e.target.value))}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="ghost" size="sm" onClick={() => setEditOpen(false)}>Ãë¼Ò</Button>
+            <Button size="sm" onClick={handleEditSave} disabled={editSaving}>
+              {editSaving ? 'ÀúÀå Áß...' : 'ÀúÀå'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* »èÁ¦ È®ÀÎ ¸ğ´Ş */}
+      <Modal isOpen={deleteOpen} onClose={() => setDeleteOpen(false)} title="¿îµ¿ »èÁ¦" size="sm">
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 bg-red-50 border border-red-100 rounded-xl px-4 py-3.5">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <div>
+              <p className="text-sm font-semibold text-red-700"><span className="font-black">{deleteExName}</span>À»(¸¦) Ã³¹æ¿¡¼­ »èÁ¦ÇÏ½Ã°Ú½À´Ï±î?</p>
+              <p className="text-xs text-red-500 mt-1">ÀÌ ÀÛ¾÷Àº µÇµ¹¸± ¼ö ¾ø½À´Ï´Ù.</p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setDeleteOpen(false)}>Ãë¼Ò</Button>
+            <Button
+              size="sm"
+              onClick={handleDeleteConfirm}
+              disabled={deleteLoading}
+              className="bg-red-500 hover:bg-red-600 text-white border-0"
+            >
+              {deleteLoading ? '»èÁ¦ Áß...' : '»èÁ¦'}
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
